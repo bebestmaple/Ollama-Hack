@@ -1,0 +1,375 @@
+{% extends "base.html" %} {% block content %}
+<div class="bg-white shadow-md rounded-lg p-6 mb-6 dark:bg-gray-800">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold dark:text-white">端点管理</h1>
+        <div class="flex space-x-2">
+            <button
+                id="show-add-form"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded dark:bg-blue-500 dark:hover:bg-blue-600"
+            >
+                <i class="fas fa-plus mr-1"></i> 添加端点
+            </button>
+            <button
+                id="show-import-form"
+                class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded dark:bg-gray-700 dark:hover:bg-gray-600"
+            >
+                <i class="fas fa-file-import mr-1"></i> 批量导入
+            </button>
+        </div>
+    </div>
+
+    <!-- 添加端点表单 -->
+    <div
+        id="add-endpoint-form"
+        class="bg-gray-50 p-4 rounded-lg mb-6 hidden dark:bg-gray-700"
+    >
+        <h2 class="text-lg font-semibold mb-3 dark:text-white">添加端点</h2>
+        <form action="/endpoints/add" method="post" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label
+                        for="url"
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >端点URL</label
+                    >
+                    <input
+                        type="url"
+                        name="url"
+                        id="url"
+                        required
+                        placeholder="http://ollama-server:11434"
+                        class="mt-1 p-1 pl-1.5 pr-1.5 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    />
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        例如: http://192.168.1.100:11434
+                    </p>
+                </div>
+                <div>
+                    <label
+                        for="name"
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                        >端点名称(可选)</label
+                    >
+                    <input
+                        type="text"
+                        name="name"
+                        id="name"
+                        placeholder="我的Ollama服务器"
+                        class="mt-1 p-1 pl-1.5 pr-1.5 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    />
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button
+                    type="button"
+                    id="cancel-add"
+                    class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-gray-100"
+                >
+                    取消
+                </button>
+                <button
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded dark:bg-blue-500 dark:hover:bg-blue-600"
+                >
+                    添加
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 批量导入表单 -->
+    <div
+        id="import-endpoints-form"
+        class="bg-gray-50 p-4 rounded-lg mb-6 hidden dark:bg-gray-700"
+    >
+        <h2 class="text-lg font-semibold mb-3 dark:text-white">批量导入端点</h2>
+        <form action="/endpoints/import" method="post" class="space-y-4">
+            <div>
+                <label
+                    for="endpoints_text"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >输入端点列表（每行一个）</label
+                >
+                <textarea
+                    name="endpoints_text"
+                    id="endpoints_text"
+                    rows="5"
+                    required
+                    class="mt-1 p-1 pl-1.5 pr-1.5 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    placeholder="http://server1:11434 服务器1&#10;http://server2:11434 服务器2&#10;http://server3:11434"
+                ></textarea>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-300">
+                    格式: URL [名称]，每行一个端点。名称可选。
+                </p>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button
+                    type="button"
+                    id="cancel-import"
+                    class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-gray-100"
+                >
+                    取消
+                </button>
+                <button
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded dark:bg-blue-500 dark:hover:bg-blue-600"
+                >
+                    导入
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 端点列表 -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        状态
+                    </th>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        名称
+                    </th>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        URL
+                    </th>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        响应时间
+                    </th>
+                    <!-- <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        上次检查
+                    </th> -->
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        操作
+                    </th>
+                </tr>
+            </thead>
+            <tbody
+                class="bg-white divide-y divide-gray-200 dark:divide-gray-700 dark:bg-gray-800"
+            >
+                {% for endpoint in endpoints %}
+                <tr class="dark:text-gray-100">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if endpoint.is_available %}
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-800"
+                        >
+                            <i class="fas fa-check-circle mr-1"></i> 可用
+                        </span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-800"
+                        >
+                            <i class="fas fa-times-circle mr-1"></i> 不可用
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap dark:text-gray-100">
+                        {{ endpoint.name }}
+                    </td>
+                    <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300"
+                    >
+                        {{ endpoint.url }}
+                    </td>
+                    <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300"
+                    >
+                        {% if endpoint.is_available %} {{
+                        "%.2f"|format(endpoint.response_time) }} ms {% else %} -
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <a
+                            href="/endpoints/refresh/{{ endpoint.id }}"
+                            title="刷新可用性"
+                            class="text-blue-600 hover:text-blue-900 mr-2 dark:text-blue-300 dark:hover:text-blue-400"
+                        >
+                            <i class="fas fa-sync-alt"></i>
+                        </a>
+                        <a
+                            href="/endpoints/delete/{{ endpoint.id }}"
+                            onclick="return confirm('确定要删除这个端点吗？')"
+                            class="text-red-600 hover:text-red-900 dark:text-red-300 dark:hover:text-red-500"
+                            >删除</a
+                        >
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td
+                        colspan="6"
+                        class="px-6 py-4 text-center text-gray-500 dark:text-gray-300"
+                    >
+                        暂无端点数据。请添加端点。
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 分页控件 -->
+    <div id="pagination" class="flex justify-center mt-4">
+        <button
+            id="prev-page"
+            class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+            disabled
+        >
+            上一页
+        </button>
+        <span id="page-info" class="px-4 py-2 text-gray-800 dark:text-gray-200"
+            >第 1 页</span
+        >
+        <button
+            id="next-page"
+            class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+        >
+            下一页
+        </button>
+    </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+    // 添加端点表单切换
+    document
+        .getElementById("show-add-form")
+        .addEventListener("click", function () {
+            document
+                .getElementById("add-endpoint-form")
+                .classList.remove("hidden");
+            document
+                .getElementById("import-endpoints-form")
+                .classList.add("hidden");
+        });
+
+    document
+        .getElementById("cancel-add")
+        .addEventListener("click", function () {
+            document
+                .getElementById("add-endpoint-form")
+                .classList.add("hidden");
+        });
+
+    // 批量导入表单切换
+    document
+        .getElementById("show-import-form")
+        .addEventListener("click", function () {
+            document
+                .getElementById("import-endpoints-form")
+                .classList.remove("hidden");
+            document
+                .getElementById("add-endpoint-form")
+                .classList.add("hidden");
+        });
+
+    document
+        .getElementById("cancel-import")
+        .addEventListener("click", function () {
+            document
+                .getElementById("import-endpoints-form")
+                .classList.add("hidden");
+        });
+
+    // 分页逻辑
+    let currentPage = 1;
+    const pageSize = 10;
+
+    async function loadEndpoints(page) {
+        const skip = (page - 1) * pageSize;
+        const response_raw = await fetch(
+            `/api/v1/endpoints?skip=${skip}&limit=${pageSize}`
+        );
+        const response = await response_raw.json();
+        const endpoints = response.endpoints;
+        const count = response.count;
+        const total_pages = Math.ceil(count / pageSize);
+
+        const tbody = document.querySelector("tbody");
+        tbody.innerHTML = "";
+
+        if (endpoints.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">
+                        暂无端点数据。请添加端点。
+                    </td>
+                </tr>
+            `;
+        } else {
+            endpoints.forEach((endpoint) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${
+                                endpoint.is_available
+                                    ? '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-800"><i class="fas fa-check-circle mr-1"></i> 可用</span>'
+                                    : '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-800"><i class="fas fa-times-circle mr-1"></i> 不可用</span>'
+                            }
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap dark:text-gray-100">${
+                            endpoint.name
+                        }</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${
+                            endpoint.url
+                        }</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${
+                            endpoint.is_available
+                                ? `${endpoint.response_time.toFixed(2)} ms`
+                                : "-"
+                        }</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="/endpoints/refresh/${
+                                endpoint.id
+                            }" title="刷新可用性" class="text-blue-600 hover:text-blue-900 mr-2 dark:text-blue-300 dark:hover:text-blue-400"><i class="fas fa-sync-alt"></i></a>
+                            <a href="/endpoints/delete/${
+                                endpoint.id
+                            }" onclick="return confirm('确定要删除这个端点吗？')" class="text-red-600 hover:text-red-900 dark:text-red-300 dark:hover:text-red-500">删除</a>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById(
+            "page-info"
+        ).textContent = `第 ${page} 页 / 共 ${total_pages} 页`;
+        document.getElementById("prev-page").disabled = page === 1;
+        document.getElementById("next-page").disabled = page === total_pages;
+    }
+
+    document.getElementById("prev-page").addEventListener("click", () => {
+        if (currentPage > 1) {
+            currentPage--;
+            loadEndpoints(currentPage);
+        }
+    });
+
+    document.getElementById("next-page").addEventListener("click", () => {
+        currentPage++;
+        loadEndpoints(currentPage);
+    });
+
+    // 初始加载第一页
+    loadEndpoints(currentPage);
+</script>
+{% endblock %}

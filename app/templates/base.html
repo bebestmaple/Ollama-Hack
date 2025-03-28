@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{ title }} - Ollama 中转平台</title>
+        <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css"
+        />
+        <link rel="stylesheet" href="/static/css/custom.css" />
+        <link rel="stylesheet" href="/static/css/tailwind.css" />
+        <script>
+            document.documentElement.classList.toggle(
+                "dark",
+                localStorage.theme === "dark" ||
+                    (!("theme" in localStorage) &&
+                        window.matchMedia("(prefers-color-scheme: dark)")
+                            .matches)
+            );
+        </script>
+    </head>
+    <body class="bg-gray-100 min-h-screen flex flex-col dark:bg-gray-700">
+        <!-- 导航栏 -->
+        <nav class="bg-gray-800 text-white p-4">
+            <div class="container mx-auto flex justify-between items-center">
+                <div class="flex items-center">
+                    <a href="/" class="font-bold text-xl">Ollama中转平台</a>
+                </div>
+                <div class="hidden md:flex space-x-4">
+                    <a href="/" class="hover:text-gray-300">首页</a>
+                    <a href="/endpoints" class="hover:text-gray-300"
+                        >端点管理</a
+                    >
+                    <a href="/models" class="hover:text-gray-300">模型管理</a>
+                    <a href="/api-keys" class="hover:text-gray-300">API密钥</a>
+                    <!-- 添加主题切换按钮 -->
+                    <div class="relative inline-block text-left">
+                        <div class="flex items-center h-full">
+                            <button
+                                id="theme-dropdown-button"
+                                class="hover:text-gray-300 flex items-center"
+                            >
+                                <i
+                                    id="theme-icon"
+                                    class="fas fa-sun mr-1 fa-fw"
+                                ></i>
+                                <!-- <span id="theme-text"></span> -->
+                                <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                            </button>
+                        </div>
+                        <div
+                            id="theme-dropdown-menu"
+                            class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 dark:bg-gray-700"
+                        >
+                            <button
+                                id="light-theme"
+                                class="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                            >
+                                <i class="fas fa-sun mr-2 fa-fw"></i>明亮模式
+                            </button>
+                            <button
+                                id="dark-theme"
+                                class="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                            >
+                                <i class="fas fa-moon mr-2 fa-fw"></i>暗黑模式
+                            </button>
+                            <button
+                                id="system-theme"
+                                class="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                            >
+                                <i class="fas fa-desktop mr-2 fa-fw"></i
+                                >跟随系统
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 移动端菜单按钮 -->
+                <div class="md:hidden flex items-center">
+                    <!-- 添加移动端主题切换按钮 -->
+                    <button
+                        id="mobile-theme-button"
+                        class="text-white focus:outline-none mr-4"
+                    >
+                        <i id="mobile-theme-icon" class="fas fa-sun fa-fw"></i>
+                    </button>
+                    <button
+                        id="menu-toggle"
+                        class="text-white focus:outline-none"
+                    >
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- 移动端导航菜单 -->
+            <div id="mobile-menu" class="hidden md:hidden mt-4">
+                <div class="flex flex-col space-y-2">
+                    <a href="/" class="hover:text-gray-300">首页</a>
+                    <a href="/endpoints" class="hover:text-gray-300"
+                        >端点管理</a
+                    >
+                    <a href="/models" class="hover:text-gray-300">模型管理</a>
+                    <a href="/api-keys" class="hover:text-gray-300">API密钥</a>
+                    <!-- 添加移动端主题选项 -->
+                    <div class="py-2 border-t border-gray-700">
+                        <button
+                            id="mobile-light-theme"
+                            class="w-full text-left py-1 hover:text-gray-300"
+                        >
+                            <i class="fas fa-sun mr-2 fa-fw"></i>明亮模式
+                        </button>
+                        <button
+                            id="mobile-dark-theme"
+                            class="w-full text-left py-1 hover:text-gray-300"
+                        >
+                            <i class="fas fa-moon mr-2 fa-fw"></i>暗黑模式
+                        </button>
+                        <button
+                            id="mobile-system-theme"
+                            class="w-full text-left py-1 hover:text-gray-300"
+                        >
+                            <i class="fas fa-desktop mr-2 fa-fw"></i>跟随系统
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 消息提示 -->
+        {% if messages %} {% for message in messages %}
+        <div class="flash-message flash-{{ message.type }}">
+            {{ message.text }}
+        </div>
+        {% endfor %} {% endif %}
+
+        <!-- 主要内容区域 -->
+        <main class="container mx-auto p-4 flex-1">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="bg-gray-800 text-white p-4 mt-10">
+            <div class="container mx-auto text-center">
+                <p>&copy; 2023 Ollama中转平台</p>
+            </div>
+        </footer>
+
+        <script>
+            // 移动端菜单切换
+            document
+                .getElementById("menu-toggle")
+                .addEventListener("click", function () {
+                    const mobileMenu = document.getElementById("mobile-menu");
+                    mobileMenu.classList.toggle("hidden");
+                });
+
+            // 自动隐藏消息提示
+            const flashMessages = document.querySelectorAll(".flash-message");
+            flashMessages.forEach(function (message) {
+                setTimeout(function () {
+                    message.style.display = "none";
+                }, 3000);
+            });
+
+            // 添加通知显示功能
+            function showNotification(message, type = "info") {
+                // 检查是否已存在通知容器
+                let notificationContainer = document.getElementById(
+                    "notification-container"
+                );
+                if (!notificationContainer) {
+                    notificationContainer = document.createElement("div");
+                    notificationContainer.id = "notification-container";
+                    notificationContainer.style.position = "fixed";
+                    notificationContainer.style.top = "20px";
+                    notificationContainer.style.right = "20px";
+                    notificationContainer.style.zIndex = "1000";
+                    document.body.appendChild(notificationContainer);
+                }
+
+                // 创建通知元素
+                const notification = document.createElement("div");
+                notification.className = `p-4 mb-3 rounded-lg shadow-md ${
+                    type === "success"
+                        ? "bg-green-100 text-green-800"
+                        : type === "error"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-blue-100 text-blue-800"
+                }`;
+                notification.style.minWidth = "300px";
+                notification.style.opacity = "0";
+                notification.style.transition = "opacity 0.3s ease-in-out";
+
+                // 添加消息和关闭按钮
+                notification.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div>${message}</div>
+                    <button class="text-gray-600 hover:text-gray-900">×</button>
+                </div>
+            `;
+
+                // 添加到容器
+                notificationContainer.appendChild(notification);
+
+                // 显示通知
+                setTimeout(() => {
+                    notification.style.opacity = "1";
+                }, 10);
+
+                // 绑定关闭按钮
+                notification
+                    .querySelector("button")
+                    .addEventListener("click", () => {
+                        notification.style.opacity = "0";
+                        setTimeout(() => {
+                            notificationContainer.removeChild(notification);
+                        }, 300);
+                    });
+
+                // 自动关闭
+                setTimeout(() => {
+                    if (notification.parentNode === notificationContainer) {
+                        notification.style.opacity = "0";
+                        setTimeout(() => {
+                            if (
+                                notification.parentNode ===
+                                notificationContainer
+                            ) {
+                                notificationContainer.removeChild(notification);
+                            }
+                        }, 300);
+                    }
+                }, 5000);
+            }
+
+            // 主题切换功能
+            function updateThemeUI() {
+                const isDark =
+                    document.documentElement.classList.contains("dark");
+                const themeText = document.getElementById("theme-text");
+                const themeIcon = document.getElementById("theme-icon");
+                const mobileThemeIcon =
+                    document.getElementById("mobile-theme-icon");
+
+                if (localStorage.theme === "dark") {
+                    // themeText.textContent = "暗黑";
+                    themeIcon.className = "fas fa-moon mr-1 fa-fw";
+                    mobileThemeIcon.className = "fas fa-moon";
+                } else if (localStorage.theme === "light") {
+                    // themeText.textContent = "明亮";
+                    themeIcon.className = "fas fa-sun mr-1 fa-fw";
+                    mobileThemeIcon.className = "fas fa-sun";
+                } else {
+                    // themeText.textContent = "系统";
+                    themeIcon.className = "fas fa-desktop mr-1 fa-fw";
+                    mobileThemeIcon.className = "fas fa-desktop";
+                }
+            }
+
+            // 设置主题函数
+            function setTheme(theme) {
+                if (theme === "dark") {
+                    document.documentElement.classList.add("dark");
+                    localStorage.theme = "dark";
+                } else if (theme === "light") {
+                    document.documentElement.classList.remove("dark");
+                    localStorage.theme = "light";
+                } else if (theme === "system") {
+                    localStorage.removeItem("theme");
+                    if (
+                        window.matchMedia("(prefers-color-scheme: dark)")
+                            .matches
+                    ) {
+                        document.documentElement.classList.add("dark");
+                    } else {
+                        document.documentElement.classList.remove("dark");
+                    }
+                }
+                updateThemeUI();
+                // 关闭下拉菜单
+                document
+                    .getElementById("theme-dropdown-menu")
+                    .classList.add("hidden");
+            }
+
+            // 桌面端主题下拉菜单切换
+            document
+                .getElementById("theme-dropdown-button")
+                .addEventListener("click", function () {
+                    document
+                        .getElementById("theme-dropdown-menu")
+                        .classList.toggle("hidden");
+                });
+
+            // 点击其他地方关闭下拉菜单
+            document.addEventListener("click", function (event) {
+                const dropdownButton = document.getElementById(
+                    "theme-dropdown-button"
+                );
+                const dropdownMenu = document.getElementById(
+                    "theme-dropdown-menu"
+                );
+
+                if (
+                    !dropdownButton.contains(event.target) &&
+                    !dropdownMenu.contains(event.target)
+                ) {
+                    dropdownMenu.classList.add("hidden");
+                }
+            });
+
+            // 主题选择事件监听
+            document
+                .getElementById("light-theme")
+                .addEventListener("click", () => setTheme("light"));
+            document
+                .getElementById("dark-theme")
+                .addEventListener("click", () => setTheme("dark"));
+            document
+                .getElementById("system-theme")
+                .addEventListener("click", () => setTheme("system"));
+
+            // 移动端主题切换
+            document
+                .getElementById("mobile-theme-button")
+                .addEventListener("click", function () {
+                    const currentTheme = localStorage.theme || "system";
+                    if (currentTheme === "light") {
+                        setTheme("dark");
+                    } else if (currentTheme === "dark") {
+                        setTheme("system");
+                    } else {
+                        setTheme("light");
+                    }
+                });
+
+            // 移动端主题选择
+            document
+                .getElementById("mobile-light-theme")
+                .addEventListener("click", () => setTheme("light"));
+            document
+                .getElementById("mobile-dark-theme")
+                .addEventListener("click", () => setTheme("dark"));
+            document
+                .getElementById("mobile-system-theme")
+                .addEventListener("click", () => setTheme("system"));
+
+            // 监听系统主题变化
+            window
+                .matchMedia("(prefers-color-scheme: dark)")
+                .addEventListener("change", () => {
+                    if (!localStorage.theme) {
+                        if (
+                            window.matchMedia("(prefers-color-scheme: dark)")
+                                .matches
+                        ) {
+                            document.documentElement.classList.add("dark");
+                        } else {
+                            document.documentElement.classList.remove("dark");
+                        }
+                    }
+                });
+
+            // 初始化主题UI
+            updateThemeUI();
+        </script>
+        {% block scripts %}{% endblock %}
+    </body>
+</html>

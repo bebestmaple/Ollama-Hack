@@ -1,0 +1,202 @@
+{% extends "base.html" %} {% block content %}
+<div class="bg-white shadow-md rounded-lg p-6 mb-6 dark:bg-gray-800">
+    <h1 class="text-2xl font-bold mb-4 dark:text-white">Ollama 中转平台概览</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <!-- 端点统计 -->
+        <div
+            class="bg-blue-50 p-4 rounded-lg flex flex-col h-full justify-between dark:bg-gray-700"
+        >
+            <div>
+                <h2
+                    class="text-lg font-semibold text-blue-700 dark:text-blue-300"
+                >
+                    端点
+                </h2>
+                <p class="text-3xl font-bold dark:text-gray-100">
+                    {{ endpoints|length }}
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    已配置的端点总数 {% set available_endpoints =
+                    endpoints|selectattr('is_available', 'equalto', true)|list
+                    %}
+                </p>
+
+                <div class="mt-2 flex items-center">
+                    <div
+                        class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600"
+                    >
+                        <div
+                            class="bg-blue-600 h-2.5 rounded-full dark:bg-blue-300"
+                            class="dynamic-width-endpoints"
+                            style="width: {{ available_endpoints|length / endpoints|length * 100 }}%"
+                        ></div>
+                    </div>
+                    <span class="ml-2 text-sm dark:text-gray-300"
+                        >{{ available_endpoints|length }}/{{
+                        endpoints|length}}</span
+                    >
+                </div>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-300">
+                    可用端点数量
+                </p>
+            </div>
+
+            <div
+                class="mt-4 pt-2 border-t border-blue-100 dark:border-gray-600"
+            >
+                <a
+                    href="/endpoints"
+                    class="text-blue-600 hover:text-blue-800 text-sm flex items-center dark:text-blue-300 dark:hover:text-blue-400"
+                >
+                    <span>管理端点</span>
+                    <i class="fas fa-chevron-right ml-1 text-xs"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- 模型统计 -->
+        <div
+            class="bg-green-50 p-4 rounded-lg flex flex-col h-full justify-between dark:bg-gray-700"
+        >
+            <div>
+                <h2
+                    class="text-lg font-semibold text-green-700 dark:text-green-300"
+                >
+                    模型
+                </h2>
+                <p class="text-3xl font-bold dark:text-gray-100">
+                    {{ models|length }}
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    支持的模型总数
+                </p>
+
+                <div class="mt-4 space-y-1">
+                    {% for model in models[:3] %}
+                    <div class="flex items-center text-sm">
+                        <i
+                            class="fas fa-cube text-green-600 mr-2 dark:text-green-300"
+                        ></i>
+                        <span class="truncate dark:text-gray-300"
+                            >{{ model.name }}</span
+                        >
+                    </div>
+                    {% endfor %} {% if models|length > 3 %}
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                        ...以及其他{{ models|length - 3 }}个模型
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div
+                class="mt-4 pt-2 border-t border-green-100 dark:border-gray-600"
+            >
+                <a
+                    href="/models"
+                    class="text-green-600 hover:text-green-800 text-sm flex items-center dark:text-green-300 dark:hover:text-green-400"
+                >
+                    <span>查看全部模型</span>
+                    <i class="fas fa-chevron-right ml-1 text-xs"></i>
+                </a>
+            </div>
+        </div>
+
+        <!-- API密钥统计 -->
+        <div
+            class="bg-purple-50 p-4 rounded-lg flex flex-col h-full justify-between dark:bg-gray-700"
+        >
+            <div>
+                <h2
+                    class="text-lg font-semibold text-purple-700 dark:text-purple-300"
+                >
+                    API密钥
+                </h2>
+                <p class="text-3xl font-bold dark:text-gray-100">
+                    {{ api_keys|length }}
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    已创建的API密钥总数
+                </p>
+
+                {% set active_keys = api_keys|selectattr('is_active', 'equalto',
+                true)|list %}
+                <div class="mt-2 flex items-center">
+                    <div
+                        class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-600"
+                    >
+                        <div
+                            class="bg-purple-600 h-2.5 rounded-full dark:bg-purple-300"
+                            class="dynamic-width-api-keys"
+                            style="width: {{ active_keys|length / api_keys|length * 100 }}%"
+                        ></div>
+                    </div>
+                    <span class="ml-2 text-sm dark:text-gray-300"
+                        >{{ active_keys|length }}/{{ api_keys|length }}</span
+                    >
+                </div>
+                <p class="text-xs text-gray-500 mt-1 dark:text-gray-300">
+                    活跃API密钥数量
+                </p>
+            </div>
+
+            <div
+                class="mt-4 pt-2 border-t border-purple-100 dark:border-gray-600"
+            >
+                <a
+                    href="/api-keys"
+                    class="text-purple-600 hover:text-purple-800 text-sm flex items-center dark:text-purple-300 dark:hover:text-purple-400"
+                >
+                    <span>管理API密钥</span>
+                    <i class="fas fa-chevron-right ml-1 text-xs"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- API使用指南 -->
+    <!-- <div class="mt-8">
+        <h2 class="text-xl font-bold mb-4">API使用指南</h2>
+        <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="font-semibold mb-2">API基础URL</h3>
+            <code class="bg-gray-200 px-2 py-1 rounded text-sm">http://your-server-address:8000/api/v1/ollama</code>
+            
+            <h3 class="font-semibold mt-4 mb-2">支持的接口</h3>
+            <ul class="list-disc list-inside space-y-2 text-sm">
+                <li>
+                    <code class="bg-gray-200 px-2 py-1 rounded">GET /api/v1/ollama/models</code>
+                    <span class="ml-2 text-gray-600">获取所有可用模型</span>
+                </li>
+                <li>
+                    <code class="bg-gray-200 px-2 py-1 rounded">POST /api/v1/ollama/chat/completions</code>
+                    <span class="ml-2 text-gray-600">兼容OpenAI的聊天补全API</span>
+                </li>
+            </ul>
+            
+            <h3 class="font-semibold mt-4 mb-2">认证</h3>
+            <p class="text-sm text-gray-600 mb-2">所有API请求需要提供API密钥。您可以通过以下两种方式之一来提供密钥：</p>
+            <ul class="list-disc list-inside space-y-1 text-sm">
+                <li>在请求头中设置 <code class="bg-gray-200 px-1 rounded">Authorization: Bearer YOUR_API_KEY</code></li>
+                <li>在请求头中设置 <code class="bg-gray-200 px-1 rounded">X-API-Key: YOUR_API_KEY</code></li>
+            </ul>
+            
+            <h3 class="font-semibold mt-4 mb-2">示例请求</h3>
+            <pre class="bg-gray-800 text-white p-3 rounded-lg text-sm overflow-x-auto">
+curl -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "model": "llama2",
+    "messages": [
+      {"role": "system", "content": "你是一个有帮助的助手"},
+      {"role": "user", "content": "你好，请介绍一下自己"}
+    ],
+    "temperature": 0.7,
+    "stream": true
+  }'
+            </pre>
+        </div>
+    </div> -->
+</div>
+{% endblock %}

@@ -1,0 +1,233 @@
+{% extends "base.html" %} {% block content %}
+<div class="bg-white shadow-md rounded-lg p-6 mb-6 dark:bg-gray-800">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold dark:text-white">API密钥管理</h1>
+        <button
+            id="show-create-form"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded dark:bg-blue-500 dark:hover:bg-blue-600"
+        >
+            <i class="fas fa-plus mr-1"></i> 创建API密钥
+        </button>
+    </div>
+
+    <!-- 创建API密钥表单 -->
+    <div
+        id="create-api-key-form"
+        class="bg-gray-50 p-4 rounded-lg mb-6 hidden dark:bg-gray-700"
+    >
+        <h2 class="text-lg font-semibold mb-3 dark:text-white">创建API密钥</h2>
+        <form action="/api-keys/create" method="post" class="space-y-4">
+            <div>
+                <label
+                    for="name"
+                    class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >密钥名称</label
+                >
+                <input
+                    type="text"
+                    name="name"
+                    id="name"
+                    required
+                    placeholder="例如: 开发环境密钥"
+                    class="mt-1 p-1 pl-1.5 pr-1.5 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                />
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    为API密钥添加一个有意义的名称，以便于识别其用途。
+                </p>
+            </div>
+            <div class="flex justify-end space-x-2">
+                <button
+                    type="button"
+                    id="cancel-create"
+                    class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-gray-100"
+                >
+                    取消
+                </button>
+                <button
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded dark:bg-blue-500 dark:hover:bg-blue-600"
+                >
+                    创建
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- API密钥列表 -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        状态
+                    </th>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        名称
+                    </th>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        密钥
+                    </th>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        创建日期
+                    </th>
+                    <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-300"
+                    >
+                        操作
+                    </th>
+                </tr>
+            </thead>
+            <tbody
+                class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700"
+            >
+                {% for api_key in api_keys %}
+                <tr class="dark:text-gray-100">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if api_key.is_active %}
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-800"
+                        >
+                            <i class="fas fa-check-circle mr-1"></i> 活跃
+                        </span>
+                        {% else %}
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-800"
+                        >
+                            <i class="fas fa-times-circle mr-1"></i> 已停用
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap dark:text-gray-100">
+                        {{ api_key.name }}
+                    </td>
+                    <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300"
+                    >
+                        <div class="flex items-center">
+                            <span
+                                class="api-key-text"
+                                id="key-{{ api_key.id }}"
+                            >
+                                {{ api_key.key[:6] }}...{{ api_key.key[-4:] }}
+                            </span>
+                            <button
+                                class="ml-2 text-blue-600 hover:text-blue-800 copy-btn dark:text-blue-300 dark:hover:text-blue-400"
+                                data-key="{{ api_key.key }}"
+                                title="复制到剪贴板"
+                            >
+                                <i class="fas fa-copy"></i>
+                            </button>
+                            <button
+                                class="ml-2 text-gray-600 hover:text-gray-800 toggle-btn dark:text-gray-300 dark:hover:text-gray-100"
+                                data-id="{{ api_key.id }}"
+                                data-key="{{ api_key.key }}"
+                                title="显示/隐藏"
+                            >
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td
+                        class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300"
+                    >
+                        {{ api_key.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        {% if api_key.is_active %}
+                        <a
+                            href="/api-keys/{{ api_key.id }}/deactivate"
+                            class="text-yellow-600 hover:text-yellow-900 mr-3 dark:text-yellow-300 dark:hover:text-yellow-400"
+                            >停用</a
+                        >
+                        {% endif %}
+                        <a
+                            href="/api-keys/{{ api_key.id }}/delete"
+                            onclick="return confirm('确定要删除这个API密钥吗？')"
+                            class="text-red-600 hover:text-red-900 dark:text-red-300 dark:hover:text-red-500"
+                            >删除</a
+                        >
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td
+                        colspan="5"
+                        class="px-6 py-4 text-center text-gray-500 dark:text-gray-300"
+                    >
+                        暂无API密钥。请创建新的API密钥。
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    // 创建API密钥表单切换
+    document
+        .getElementById("show-create-form")
+        .addEventListener("click", function () {
+            document
+                .getElementById("create-api-key-form")
+                .classList.remove("hidden");
+        });
+
+    document
+        .getElementById("cancel-create")
+        .addEventListener("click", function () {
+            document
+                .getElementById("create-api-key-form")
+                .classList.add("hidden");
+        });
+
+    // 复制API密钥
+    document.querySelectorAll(".copy-btn").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const key = this.getAttribute("data-key");
+            navigator.clipboard.writeText(key).then(
+                function () {
+                    alert("API密钥已复制到剪贴板");
+                },
+                function (err) {
+                    console.error("无法复制API密钥: ", err);
+                }
+            );
+        });
+    });
+
+    // 显示/隐藏API密钥
+    document.querySelectorAll(".toggle-btn").forEach(function (button) {
+        button.addEventListener("click", function () {
+            const id = this.getAttribute("data-id");
+            const key = this.getAttribute("data-key");
+            const keyText = document.getElementById("key-" + id);
+            const icon = this.querySelector("i");
+
+            if (keyText.textContent.includes("...")) {
+                keyText.textContent = key;
+                icon.classList.remove("fa-eye");
+                icon.classList.add("fa-eye-slash");
+            } else {
+                keyText.textContent = key.substr(0, 6) + "..." + key.substr(-4);
+                icon.classList.remove("fa-eye-slash");
+                icon.classList.add("fa-eye");
+            }
+        });
+    });
+</script>
+{% endblock %} {% endblock %}
