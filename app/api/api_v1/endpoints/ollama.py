@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -53,7 +53,7 @@ async def verify_api_key(
 
 
 # 列出所有可用模型
-@router.get("/models", response_model=List[Dict[str, Any]])
+@router.get("/models", response_model=Dict[str, Any])
 async def list_models(db: Session = Depends(get_db)):
     models = crud_model.get_available_models(db)
 
@@ -69,7 +69,7 @@ async def list_models(db: Session = Depends(get_db)):
             }
         )
 
-    return openai_models
+    return {"object": "list", "data": openai_models}
 
 
 # 聊天补全API

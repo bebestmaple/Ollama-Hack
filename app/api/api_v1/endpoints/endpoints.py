@@ -43,8 +43,15 @@ async def create_endpoints_bulk(
 
 
 @router.get("/", response_model=EndpointResponse)
-def read_endpoints(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    endpoints, total_count = crud_endpoint.get_endpoints(db, skip=skip, limit=limit)
+def read_endpoints(
+    skip: int = 0,
+    limit: int = 100,
+    only_available: bool = False,
+    db: Session = Depends(get_db),
+):
+    endpoints, total_count = crud_endpoint.get_endpoints(
+        db, skip=skip, limit=limit, only_available=only_available
+    )
     return {
         "count": total_count,
         "endpoints": endpoints,

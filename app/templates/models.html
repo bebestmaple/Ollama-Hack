@@ -15,12 +15,14 @@
                     <i class="fas fa-search"></i>
                 </div>
             </div>
-            <a
-                href="/models/refresh"
-                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center dark:bg-green-700 dark:hover:bg-green-600"
+            <!-- 替换复选框为按钮 -->
+            <button
+                id="toggleModelVisibility"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded flex items-center dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
             >
-                <i class="fas fa-sync-alt mr-2"></i> 刷新模型列表
-            </a>
+                <i class="fas fa-eye-slash mr-2" id="visibilityIcon"></i>
+                <span id="visibilityText">隐藏无节点模型</span>
+            </button>
         </div>
     </div>
 
@@ -29,34 +31,75 @@
     </div>
 
     <!-- 分页控件 -->
-    <div id="pagination" class="flex justify-center mt-4">
-        <button
-            id="prev-page"
-            class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
-            disabled
-        >
-            上一页
-        </button>
+    <div id="pagination" class="flex justify-between items-center mt-4"></div>
+    <div class="grid grid-cols-1 gap-6" id="model-container">
+        <!-- 模型列表 -->
+    </div>
+
+    <!-- 分页控件 -->
+    <div id="pagination" class="flex justify-between mt-4">
         <span id="page-info" class="px-4 py-2 text-gray-800 dark:text-gray-200"
             >第 1 页</span
         >
-        <button
-            id="next-page"
-            class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
-        >
-            下一页
-        </button>
+        <div class="ml-4 flex items-center">
+            <label
+                for="page-size-select"
+                class="mr-2 text-gray-800 dark:text-gray-200"
+                >每页显示:</label
+            >
+            <select
+                id="page-size-select"
+                class="bg-gray-200 text-gray-800 px-2 py-2 rounded dark:bg-gray-700 dark:text-gray-200 focus:outline-none"
+            >
+                <option value="5">5条</option>
+                <option value="10">10条</option>
+                <option value="20">20条</option>
+                <option value="50">50条</option>
+            </select>
+        </div>
+        <div>
+            <button
+                id="prev-page"
+                class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+                disabled
+            >
+                上一页
+            </button>
+            <button
+                id="next-page"
+                class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+            >
+                下一页
+            </button>
+        </div>
     </div>
 </div>
 {% endblock %} {% block scripts %}
 <script>
     (function () {
         let currentPage = 1;
-        const pageSize = 5;
+        let pageSize = parseInt(
+            localStorage.getItem("models_page_size") || "5"
+        );
         const performancePageSize = 5;
         let searchTerm = "";
+        let showOnlyTested = false;
         let totalPages = 1;
         let debounceTimer;
+
+        // 初始化每页显示条数下拉框
+        document.getElementById("page-size-select").value = pageSize;
+
+        // 监听每页显示条数变化
+        document
+            .getElementById("page-size-select")
+            .addEventListener("change", function () {
+                pageSize = parseInt(this.value);
+                localStorage.setItem("models_page_size", pageSize);
+                currentPage = 1;
+                loadModels(currentPage, searchTerm, showOnlyTested);
+                updateTotalPages(searchTerm, showOnlyTested);
+            });
 
         // 搜索功能
         const searchInput = document.getElementById("model-search");
@@ -65,12 +108,36 @@
             debounceTimer = setTimeout(() => {
                 searchTerm = this.value.trim();
                 currentPage = 1;
-                loadModels(currentPage, searchTerm);
-                updateTotalPages(searchTerm);
+                loadModels(currentPage, searchTerm, showOnlyTested);
+                updateTotalPages(searchTerm, showOnlyTested);
             }, 300);
         });
 
-        async function updateTotalPages(search) {
+        // 替换复选框为按钮的功能
+        const toggleVisibilityBtn = document.getElementById(
+            "toggleModelVisibility"
+        );
+        const visibilityIcon = document.getElementById("visibilityIcon");
+        const visibilityText = document.getElementById("visibilityText");
+
+        toggleVisibilityBtn.addEventListener("click", function () {
+            showOnlyTested = !showOnlyTested;
+
+            // 更新按钮图标和文字
+            if (showOnlyTested) {
+                visibilityIcon.className = "fas fa-eye mr-2";
+                visibilityText.textContent = "显示所有模型";
+            } else {
+                visibilityIcon.className = "fas fa-eye-slash mr-2";
+                visibilityText.textContent = "隐藏不可用模型";
+            }
+
+            currentPage = 1;
+            loadModels(currentPage, searchTerm, showOnlyTested);
+            updateTotalPages(searchTerm, showOnlyTested);
+        });
+
+        async function updateTotalPages(search, onlyTested) {
             try {
                 // 更新分页信息
                 document.getElementById(
@@ -85,11 +152,11 @@
             }
         }
 
-        async function loadModels(page, search = "") {
+        async function loadModels(page, search = "", onlyTested = false) {
             const skip = (page - 1) * pageSize;
             const url = `/api/v1/models?skip=${skip}&limit=${pageSize}${
                 search ? `&search=${encodeURIComponent(search)}` : ""
-            }`;
+            }${onlyTested ? "&only_tested=true" : ""}`;
             const response_raw = await fetch(url);
             const response = await response_raw.json();
             const models = response.models;
@@ -362,14 +429,14 @@
         document.getElementById("prev-page").addEventListener("click", () => {
             if (currentPage > 1) {
                 currentPage--;
-                loadModels(currentPage, searchTerm);
+                loadModels(currentPage, searchTerm, showOnlyTested);
             }
         });
 
         document.getElementById("next-page").addEventListener("click", () => {
             if (currentPage < totalPages) {
                 currentPage++;
-                loadModels(currentPage, searchTerm);
+                loadModels(currentPage, searchTerm, showOnlyTested);
             }
         });
 

@@ -28,8 +28,19 @@ def get_or_create_model(db: Session, model_name: str) -> Model:
 
 
 # 获取所有模型
-def get_models(db: Session, skip: int = 0, limit: int = 100) -> tuple[List[Model], int]:
-    return db.query(Model).offset(skip).limit(limit).all(), db.query(Model).count()
+def get_models(
+    db: Session, skip: int = 0, limit: int = 100, only_tested: bool = False
+) -> tuple[List[Model], int]:
+    query = db.query(Model)
+    if only_tested:
+        query = (
+            query.join(Model.endpoints)
+            .filter(
+                Endpoint.is_available, Endpoint.is_active, Model.performance_tests.any()
+            )
+            .distinct()
+        )
+    return query.offset(skip).limit(limit).all(), query.count()
 
 
 # 通过ID获取模型
@@ -72,38 +83,28 @@ def get_available_models(db: Session) -> List[Model]:
 
 
 def search_models(
-    db: Session, search_term: str, skip: int = 0, limit: int = 100
+    db: Session,
+    search_term: str,
+    skip: int = 0,
+    limit: int = 100,
+    only_tested: bool = False,
 ) -> tuple[List[Model], int]:
     """
     搜索模型，根据名称或显示名称进行模糊匹配
     """
     search_pattern = f"%{search_term}%"
-    return (
-        db.query(Model)
-        .filter(
-            or_(
-                Model.name.ilike(search_pattern),
-                Model.display_name.ilike(search_pattern),
-            )
+    query = db.query(Model).filter(
+        or_(
+            Model.name.ilike(search_pattern),
+            Model.display_name.ilike(search_pattern),
         )
-        .offset(skip)
-        .limit(limit)
-        .all()
-    ), count_models_by_search(db, search_term)
-
-
-def count_models_by_search(db: Session, search_term: str) -> int:
-    """
-    获取搜索结果的总数
-    """
-    search_pattern = f"%{search_term}%"
-    return (
-        db.query(Model)
-        .filter(
-            or_(
-                Model.name.ilike(search_pattern),
-                Model.display_name.ilike(search_pattern),
-            )
-        )
-        .count()
     )
+    if only_tested:
+        query = (
+            query.join(Model.endpoints)
+            .filter(
+                Endpoint.is_available, Endpoint.is_active, Model.performance_tests.any()
+            )
+            .distinct()
+        )
+    return (query.offset(skip).limit(limit).all()), query.count()

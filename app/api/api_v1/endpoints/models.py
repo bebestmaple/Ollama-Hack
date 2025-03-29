@@ -22,15 +22,21 @@ def read_models(
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
+    only_tested: bool = False,
     db: Session = Depends(get_db),
 ):
     """
-    获取模型列表，支持搜索功能
+    获取模型列表，支持搜索功能和仅显示成功测试模型
     """
     if search:
-        models, count = crud_model.search_models(db, search, skip=skip, limit=limit)
+        models, count = crud_model.search_models(
+            db, search, skip=skip, limit=limit, only_tested=only_tested
+        )
     else:
-        models, count = crud_model.get_models(db, skip=skip, limit=limit)
+        models, count = crud_model.get_models(
+            db, skip=skip, limit=limit, only_tested=only_tested
+        )
+
     return {
         "count": count,
         "models": models,

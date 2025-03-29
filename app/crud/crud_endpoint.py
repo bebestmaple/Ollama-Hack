@@ -50,12 +50,18 @@ def create_endpoints_bulk(
 
 # 获取所有端点
 def get_endpoints(
-    db: Session, skip: int = 0, limit: int | None = None
+    db: Session, skip: int = 0, limit: int | None = None, only_available: bool = False
 ) -> tuple[List[Endpoint], int]:
-    query = db.query(Endpoint).offset(skip)
+    query = db.query(Endpoint)
+    if only_available:
+        query = query.filter(Endpoint.is_available)
     return (
-        query.limit(limit).all() if limit is not None else query.all(),
-        db.query(Endpoint).count(),
+        (
+            query.offset(skip).limit(limit).all()
+            if limit is not None
+            else query.offset(skip).all()
+        ),
+        query.count(),
     )
 
 

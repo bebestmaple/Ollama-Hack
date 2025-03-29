@@ -15,6 +15,13 @@
             >
                 <i class="fas fa-file-import mr-1"></i> 批量导入
             </button>
+            <button
+                id="toggleEndpointVisibility"
+                class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded flex items-center dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+            >
+                <i class="fas fa-eye-slash mr-2" id="visibilityIcon"></i>
+                <span id="visibilityText">隐藏不可用端点</span>
+            </button>
         </div>
     </div>
 
@@ -229,23 +236,41 @@
     </div>
 
     <!-- 分页控件 -->
-    <div id="pagination" class="flex justify-center mt-4">
-        <button
-            id="prev-page"
-            class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
-            disabled
-        >
-            上一页
-        </button>
+    <div id="pagination" class="flex justify-between mt-4">
         <span id="page-info" class="px-4 py-2 text-gray-800 dark:text-gray-200"
             >第 1 页</span
         >
-        <button
-            id="next-page"
-            class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
-        >
-            下一页
-        </button>
+        <div class="ml-4 flex items-center">
+            <label
+                for="page-size-select"
+                class="mr-2 text-gray-800 dark:text-gray-200"
+                >每页显示:</label
+            >
+            <select
+                id="page-size-select"
+                class="bg-gray-200 text-gray-800 px-2 py-2 rounded dark:bg-gray-700 dark:text-gray-200 focus:outline-none"
+            >
+                <option value="5">5条</option>
+                <option value="15">15条</option>
+                <option value="30">30条</option>
+                <option value="50">50条</option>
+            </select>
+        </div>
+        <div>
+            <button
+                id="prev-page"
+                class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+                disabled
+            >
+                上一页
+            </button>
+            <button
+                id="next-page"
+                class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-gray-800 mx-1 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200"
+            >
+                下一页
+            </button>
+        </div>
     </div>
 </div>
 {% endblock %} {% block scripts %}
@@ -292,13 +317,50 @@
 
     // 分页逻辑
     let currentPage = 1;
-    const pageSize = 10;
+    let pageSize = parseInt(localStorage.getItem("endpoints_page_size") || "5");
+    let showOnlyAvailable = false;
+
+    const toggleVisibilityBtn = document.getElementById(
+        "toggleEndpointVisibility"
+    );
+    const visibilityIcon = document.getElementById("visibilityIcon");
+    const visibilityText = document.getElementById("visibilityText");
+
+    toggleVisibilityBtn.addEventListener("click", function () {
+        showOnlyAvailable = !showOnlyAvailable;
+
+        // 更新按钮图标和文字
+        if (showOnlyAvailable) {
+            visibilityIcon.className = "fas fa-eye mr-2";
+            visibilityText.textContent = "显示所有端点";
+        } else {
+            visibilityIcon.className = "fas fa-eye-slash mr-2";
+            visibilityText.textContent = "隐藏不可用端点";
+        }
+
+        currentPage = 1;
+        loadEndpoints(currentPage);
+    });
+
+    // 初始化每页显示条数下拉框
+    document.getElementById("page-size-select").value = pageSize;
+
+    // 监听每页显示条数变化
+    document
+        .getElementById("page-size-select")
+        .addEventListener("change", function () {
+            pageSize = parseInt(this.value);
+            localStorage.setItem("endpoints_page_size", pageSize);
+            currentPage = 1;
+            loadEndpoints(currentPage);
+        });
 
     async function loadEndpoints(page) {
         const skip = (page - 1) * pageSize;
-        const response_raw = await fetch(
-            `/api/v1/endpoints?skip=${skip}&limit=${pageSize}`
-        );
+        const url = `/api/v1/endpoints?skip=${skip}&limit=${pageSize}${
+            showOnlyAvailable ? "&only_available=true" : ""
+        }`;
+        const response_raw = await fetch(url);
         const response = await response_raw.json();
         const endpoints = response.endpoints;
         const count = response.count;

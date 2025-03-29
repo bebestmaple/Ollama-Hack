@@ -37,9 +37,10 @@ async def send_request_to_ollama(
                 timeout=None,
             ) as response:
                 if response.status_code != 200:
+                    resp = await response.aread()
                     raise HTTPException(
                         status_code=response.status_code,
-                        detail=f"Ollama API error: {response.text}",
+                        detail=f"Ollama API error: {resp.decode()}",  # 读取错误信息
                     )
 
                 async for chunk in response.aiter_text():
