@@ -34,7 +34,7 @@ async def add_endpoint(
 ):
     try:
         # 检查端点可用性
-        is_available, response_time = await check_endpoint_availability(url)
+        is_available, response_time = check_endpoint_availability(url)
 
         # 创建端点
         endpoint_data = EndpointCreate(url=url, name=name or url)

@@ -19,7 +19,7 @@ router = APIRouter()
 @router.post("/", response_model=Endpoint)
 async def create_endpoint(endpoint: EndpointCreate, db: Session = Depends(get_db)):
     # 检查端点可用性
-    is_available, response_time = await check_endpoint_availability(endpoint.url)
+    is_available, response_time = check_endpoint_availability(endpoint.url)
 
     # 创建端点
     db_endpoint = crud_endpoint.create_endpoint(db, endpoint)

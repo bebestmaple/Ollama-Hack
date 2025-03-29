@@ -80,6 +80,9 @@ def test_endpoint_performance(
                 elapsed = time.time() - start_time
                 tokens_per_second = tokens_generated / elapsed if elapsed > 0 else 0
                 response_time = elapsed * 1000  # 转换为毫秒
+                logger.info(
+                    f"Performance test completed: {tokens_generated} tokens in {elapsed:.2f} seconds ({tokens_per_second:.2f} tps)"
+                )
                 return {
                     "tokens_per_second": tokens_per_second,
                     "response_time": response_time,

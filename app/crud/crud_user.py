@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.models.models import User
-from app.schemas.schemas import UserCreate
+from app.schemas.schemas import UserCreate, UserUpdate
 
 # 密码加密上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -86,3 +86,39 @@ def update_password(db: Session, username: str, new_password: str) -> bool:
     user.password_hash = hashed_password
     db.commit()
     return True
+
+
+# 删除用户
+def delete_user(db: Session, username: str) -> bool:
+    user = get_user_by_username(db, username)
+    if user:
+        db.delete(user)
+        db.commit()
+        return True
+    return False
+
+
+# 切换用户管理员状态
+def toggle_admin(db: Session, username: str) -> bool:
+    user = get_user_by_username(db, username)
+    if user:
+        user.is_admin = not user.is_admin
+        db.commit()
+        db.refresh(user)
+        return True
+    return False
+
+
+# 更新用户信息
+def update_user(db: Session, username: str, user_update: UserUpdate) -> Optional[User]:
+    user = get_user_by_username(db, username)
+    if not user:
+        return None
+
+    # 更新用户信息
+    for key, value in user_update.dict(exclude_unset=True).items():
+        setattr(user, key, value)
+
+    db.commit()
+    db.refresh(user)
+    return user

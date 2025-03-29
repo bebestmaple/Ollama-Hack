@@ -156,38 +156,68 @@
     </div>
 
     <!-- API使用指南 -->
-    <!-- <div class="mt-8">
-        <h2 class="text-xl font-bold mb-4">API使用指南</h2>
-        <div class="bg-gray-50 p-4 rounded-lg">
+    <div class="mt-8">
+        <h2 class="text-xl font-bold mb-4 dark:text-white">API使用指南</h2>
+        <div
+            class="bg-gray-50 p-4 rounded-lg dark:bg-gray-700 dark:text-gray-300"
+        >
             <h3 class="font-semibold mb-2">API基础URL</h3>
-            <code class="bg-gray-200 px-2 py-1 rounded text-sm">http://your-server-address:8000/api/v1/ollama</code>
-            
+            <code class="bg-gray-200 px-2 py-1 rounded text-sm dark:bg-gray-600"
+                >http://your-server-address:8000/api/v1/ollama</code
+            >
+
             <h3 class="font-semibold mt-4 mb-2">支持的接口</h3>
+            <p class="text-sm text-gray-600 mb-2 dark:text-gray-300">
+                接口的返回结构和内容都与直接使用 Ollama 无异 (OpenAI Compatible
+                API)，你可以在任何支持 OpenAI Compatible API 的地方使用它。
+            </p>
             <ul class="list-disc list-inside space-y-2 text-sm">
                 <li>
-                    <code class="bg-gray-200 px-2 py-1 rounded">GET /api/v1/ollama/models</code>
-                    <span class="ml-2 text-gray-600">获取所有可用模型</span>
+                    <code class="bg-gray-200 px-2 py-1 rounded dark:bg-gray-600"
+                        >GET /api/v1/ollama/models</code
+                    >
+                    <span class="ml-2 text-gray-600 dark:text-gray-300"
+                        >获取所有可用模型</span
+                    >
                 </li>
                 <li>
-                    <code class="bg-gray-200 px-2 py-1 rounded">POST /api/v1/ollama/chat/completions</code>
-                    <span class="ml-2 text-gray-600">兼容OpenAI的聊天补全API</span>
+                    <code class="bg-gray-200 px-2 py-1 rounded dark:bg-gray-600"
+                        >POST /api/v1/ollama/chat/completions</code
+                    >
+                    <span class="ml-2 text-gray-600 dark:text-gray-300"
+                        >兼容OpenAI的聊天补全API</span
+                    >
                 </li>
             </ul>
-            
+
             <h3 class="font-semibold mt-4 mb-2">认证</h3>
-            <p class="text-sm text-gray-600 mb-2">所有API请求需要提供API密钥。您可以通过以下两种方式之一来提供密钥：</p>
+            <p class="text-sm text-gray-600 mb-2 dark:text-gray-300">
+                所有API请求需要提供API密钥。您可以通过以下两种方式之一来提供密钥：
+            </p>
             <ul class="list-disc list-inside space-y-1 text-sm">
-                <li>在请求头中设置 <code class="bg-gray-200 px-1 rounded">Authorization: Bearer YOUR_API_KEY</code></li>
-                <li>在请求头中设置 <code class="bg-gray-200 px-1 rounded">X-API-Key: YOUR_API_KEY</code></li>
+                <li>
+                    在请求头中设置
+                    <code class="bg-gray-200 px-1 rounded dark:bg-gray-600"
+                        >Authorization: Bearer YOUR_API_KEY</code
+                    >
+                </li>
+                <li>
+                    在请求头中设置
+                    <code class="bg-gray-200 px-1 rounded dark:bg-gray-600"
+                        >X-API-Key: YOUR_API_KEY</code
+                    >
+                </li>
             </ul>
-            
+
             <h3 class="font-semibold mt-4 mb-2">示例请求</h3>
-            <pre class="bg-gray-800 text-white p-3 rounded-lg text-sm overflow-x-auto">
-curl -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
+            <pre
+                class="bg-gray-800 text-white p-3 rounded-lg text-sm overflow-x-auto"
+            >
+curl -N -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
-    "model": "llama2",
+    "model": "deepseek-r1:8b",
     "messages": [
       {"role": "system", "content": "你是一个有帮助的助手"},
       {"role": "user", "content": "你好，请介绍一下自己"}
@@ -197,6 +227,6 @@ curl -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
   }'
             </pre>
         </div>
-    </div> -->
+    </div>
 </div>
 {% endblock %}

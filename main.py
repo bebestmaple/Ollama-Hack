@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
 
     # 创建调度器
     scheduler = BackgroundScheduler()
-    scheduler.add_job(check_all_endpoints, "interval", minutes=5)
+    scheduler.add_job(check_all_endpoints, "interval", hours=5)
     scheduler.start()
 
     yield

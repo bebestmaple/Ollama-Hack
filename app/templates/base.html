@@ -64,6 +64,14 @@
                             >
                                 <i class="fas fa-key mr-2 fa-fw"></i>修改密码
                             </a>
+                            {% if request.session.get('is_admin', False) %}
+                            <a
+                                href="/users"
+                                class="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                            >
+                                <i class="fas fa-users mr-2 fa-fw"></i>用户管理
+                            </a>
+                            {% endif %}
                             <a
                                 href="/logout"
                                 class="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
@@ -149,6 +157,11 @@
                         <a href="/change-password" class="block py-1 hover:text-gray-300">
                             <i class="fas fa-key mr-2"></i>修改密码
                         </a>
+                        {% if request.session.get('is_admin', False) %}
+                        <a href="/users" class="block py-1 hover:text-gray-300">
+                            <i class="fas fa-users mr-2"></i>用户管理
+                        </a>
+                        {% endif %}
                         <a href="/logout" class="block py-1 hover:text-gray-300">
                             <i class="fas fa-sign-out-alt mr-2"></i>登出
                         </a>

@@ -145,6 +145,10 @@ class UserCreate(UserBase):
     password: str
 
 
+class UserUpdate(BaseModel):
+    is_admin: Optional[bool] = None
+
+
 class UserInDB(UserBase):
     id: int
     created_at: datetime
