@@ -10,6 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.api_v1.api import api_router
 from app.api.web.router import web_router
 from app.core.config import settings
+from app.core.utils import create_initial_admin_if_needed
 from app.db.database import Base, engine
 from app.services.endpoint_service import check_all_endpoints
 
@@ -20,11 +21,18 @@ Base.metadata.create_all(bind=engine)
 # 创建和启动定时任务
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 在应用启动时检查并创建初始管理员账户
+    create_initial_admin_if_needed()
+
+    # 创建调度器
     scheduler = BackgroundScheduler()
-    # 每5分钟检查一次所有端点的可用性
-    scheduler.add_job(check_all_endpoints, "interval", hours=5)
+    scheduler.add_job(check_all_endpoints, "interval", minutes=5)
     scheduler.start()
+
     yield
+
+    # 应用关闭时关闭调度器
+    scheduler.shutdown()
 
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)

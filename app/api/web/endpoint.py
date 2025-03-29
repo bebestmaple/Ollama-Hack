@@ -5,19 +5,20 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.status import HTTP_303_SEE_OTHER
 
-from app.api.web.utils import add_message, redirect_with_message, templates
+from app.api.api_v1.endpoints.auth import require_auth
+from app.api.web.utils import add_message, template_response
 from app.crud import crud_endpoint
 from app.db.database import get_db
 from app.schemas.schemas import EndpointCreate
 from app.services.endpoint_service import check_endpoint_availability
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 # 端点管理页面
 @router.get("/endpoints", response_class=HTMLResponse)
 async def endpoint_management(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(
+    return template_response(
         "endpoints.html",
         {"request": request, "title": "端点管理"},
     )
@@ -127,13 +128,13 @@ async def refresh_endpoint(
     from app.services.endpoint_service import check_endpoint_availability
 
     try:
-        endpoint = crud_endpoint.get_endpoint(db, endpoint_id)
+        endpoint = crud_endpoint.get_endpoint_by_id(db, endpoint_id)
         if not endpoint:
-            messages = [{"type": "error", "text": "找不到指定的端点"}]
-            return redirect_with_message("/endpoints", messages)
+            add_message(request, "找不到指定的端点", "error")
+            return RedirectResponse(url="/endpoints", status_code=HTTP_303_SEE_OTHER)
 
         # 检查端点可用性
-        is_available, response_time = await check_endpoint_availability(endpoint.url)
+        is_available, response_time = check_endpoint_availability(endpoint.url)
 
         # 更新端点状态
         crud_endpoint.update_endpoint_status(
@@ -141,21 +142,19 @@ async def refresh_endpoint(
         )
 
         if is_available:
-            messages = [
-                {
-                    "type": "success",
-                    "text": f"端点 {endpoint.name or endpoint.url} 已刷新，状态: 可用",
-                }
-            ]
+            add_message(
+                request,
+                f"端点 {endpoint.name or endpoint.url} 已刷新，状态: 可用 (响应时间: {response_time:.2f} ms)",
+                "success",
+            )
         else:
-            messages = [
-                {
-                    "type": "error",
-                    "text": f"端点 {endpoint.name or endpoint.url} 已刷新，状态: 不可用",
-                }
-            ]
+            add_message(
+                request,
+                f"端点 {endpoint.name or endpoint.url} 已刷新，状态: 不可用 (响应时间: {response_time:.2f} ms)",
+                "error",
+            )
 
-        return redirect_with_message("/endpoints", messages)
+        return RedirectResponse(url="/endpoints", status_code=HTTP_303_SEE_OTHER)
     except Exception as e:
-        messages = [{"type": "error", "text": f"刷新端点时出错: {str(e)}"}]
-        return redirect_with_message("/endpoints", messages)
+        add_message(request, f"刷新端点失败: {str(e)}", "error")
+        return RedirectResponse(url="/endpoints", status_code=HTTP_303_SEE_OTHER)

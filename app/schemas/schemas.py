@@ -135,6 +135,28 @@ class OllamaChatResponse(BaseModel):
     usage: dict
 
 
+# 用户相关模型
+class UserBase(BaseModel):
+    username: str
+    is_admin: bool = False
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class UserInDB(UserBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
+class User(UserInDB):
+    pass
+
+
 # 解决循环引用问题
 Endpoint.update_forward_refs()
 Model.update_forward_refs()

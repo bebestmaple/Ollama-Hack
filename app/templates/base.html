@@ -1,3 +1,7 @@
+{% set logged_in = false %} 
+{% if request.session.get('user') %}
+    {% set logged_in = true %}
+{% endif %}
 <!DOCTYPE html>
 <html lang="zh-CN">
     <head>
@@ -35,6 +39,40 @@
                     >
                     <a href="/models" class="hover:text-gray-300">模型管理</a>
                     <a href="/api-keys" class="hover:text-gray-300">API密钥</a>
+                    <!-- 用户下拉菜单替代登出按钮 -->
+                    {% if logged_in %}
+                    <div class="relative inline-block text-left">
+                        <div class="flex items-center h-full">
+                            <button
+                                id="user-dropdown-button"
+                                class="hover:text-gray-300 flex items-center"
+                            >
+                                <i class="fas fa-user mr-1 fa-fw"></i>
+                                <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                            </button>
+                        </div>
+                        <div
+                            id="user-dropdown-menu"
+                            class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 dark:bg-gray-700"
+                        >
+                            <div class="block px-4 py-2 text-gray-600 border-b border-gray-200 dark:text-gray-300 dark:border-gray-600">
+                                <i class="fas fa-user-circle mr-2 fa-fw"></i>{{ request.session.get('user', '') }}
+                            </div>
+                            <a
+                                href="/change-password"
+                                class="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                            >
+                                <i class="fas fa-key mr-2 fa-fw"></i>修改密码
+                            </a>
+                            <a
+                                href="/logout"
+                                class="block w-full text-left px-4 py-2 text-gray-800 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-600"
+                            >
+                                <i class="fas fa-sign-out-alt mr-2 fa-fw"></i>登出
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
                     <!-- 添加主题切换按钮 -->
                     <div class="relative inline-block text-left">
                         <div class="flex items-center h-full">
@@ -102,6 +140,20 @@
                     >
                     <a href="/models" class="hover:text-gray-300">模型管理</a>
                     <a href="/api-keys" class="hover:text-gray-300">API密钥</a>
+                    <!-- 移动端用户菜单 -->
+                    {% if logged_in %}
+                    <div class="py-2 border-t border-gray-700">
+                        <div class="text-gray-400 py-1">
+                            <i class="fas fa-user-circle mr-2"></i>{{ request.session.get('user', '') }}
+                        </div>
+                        <a href="/change-password" class="block py-1 hover:text-gray-300">
+                            <i class="fas fa-key mr-2"></i>修改密码
+                        </a>
+                        <a href="/logout" class="block py-1 hover:text-gray-300">
+                            <i class="fas fa-sign-out-alt mr-2"></i>登出
+                        </a>
+                    </div>
+                    {% endif %}
                     <!-- 添加移动端主题选项 -->
                     <div class="py-2 border-t border-gray-700">
                         <button
@@ -128,11 +180,17 @@
         </nav>
 
         <!-- 消息提示 -->
-        {% if messages %} {% for message in messages %}
-        <div class="flash-message flash-{{ message.type }}">
-            {{ message.text }}
+        <div id="messages-container">
+            {% if messages %} {% for message in messages %}
+            <div
+                class="flash-message flash-{{ message.type }}"
+                style="opacity: 1"
+            >
+                {{ message.text }}
+                <button class="close-message ml-2">&times;</button>
+            </div>
+            {% endfor %} {% endif %}
         </div>
-        {% endfor %} {% endif %}
 
         <!-- 主要内容区域 -->
         <main class="container mx-auto p-4 flex-1">
@@ -156,11 +214,33 @@
                 });
 
             // 自动隐藏消息提示
-            const flashMessages = document.querySelectorAll(".flash-message");
-            flashMessages.forEach(function (message) {
-                setTimeout(function () {
-                    message.style.display = "none";
-                }, 3000);
+            document.addEventListener("DOMContentLoaded", function () {
+                const closeButtons =
+                    document.querySelectorAll(".close-message");
+                closeButtons.forEach(function (button) {
+                    button.addEventListener("click", function () {
+                        const message = this.parentElement;
+                        message.style.opacity = "0";
+                        setTimeout(function () {
+                            if (message.parentNode) {
+                                message.parentNode.removeChild(message);
+                            }
+                        }, 300);
+                    });
+                });
+
+                const flashMessages =
+                    document.querySelectorAll(".flash-message");
+                flashMessages.forEach(function (message) {
+                    setTimeout(function () {
+                        message.style.opacity = "0";
+                        setTimeout(function () {
+                            if (message.parentNode) {
+                                message.parentNode.removeChild(message);
+                            }
+                        }, 300);
+                    }, 5000);
+                });
             });
 
             // 添加通知显示功能
@@ -234,6 +314,35 @@
                 }, 5000);
             }
 
+            // 监听 HX-Trigger 事件
+            document.body.addEventListener(
+                "htmx:afterOnLoad",
+                function (event) {
+                    const triggerHeader =
+                        event.detail.xhr.getResponseHeader("HX-Trigger");
+                    console.log("HX-Trigger header:", triggerHeader);
+                    if (triggerHeader) {
+                        try {
+                            const triggers = JSON.parse(triggerHeader);
+                            if (triggers.showMessage) {
+                                const messages = triggers.showMessage;
+                                for (const message of messages) {
+                                    showNotification(
+                                        message.text,
+                                        message.type
+                                    );
+                                }
+                            }
+                        } catch (e) {
+                            console.error(
+                                "Error parsing HX-Trigger header:",
+                                e
+                            );
+                        }
+                    }
+                }
+            );
+
             // 主题切换功能
             function updateThemeUI() {
                 const isDark =
@@ -293,20 +402,48 @@
                         .classList.toggle("hidden");
                 });
 
+            // 添加用户下拉菜单切换
+            if (document.getElementById("user-dropdown-button")) {
+                document
+                    .getElementById("user-dropdown-button")
+                    .addEventListener("click", function () {
+                        document
+                            .getElementById("user-dropdown-menu")
+                            .classList.toggle("hidden");
+                    });
+            }
+
             // 点击其他地方关闭下拉菜单
             document.addEventListener("click", function (event) {
-                const dropdownButton = document.getElementById(
+                const themeDropdownButton = document.getElementById(
                     "theme-dropdown-button"
                 );
-                const dropdownMenu = document.getElementById(
+                const themeDropdownMenu = document.getElementById(
                     "theme-dropdown-menu"
+                );
+                const userDropdownButton = document.getElementById(
+                    "user-dropdown-button"
+                );
+                const userDropdownMenu = document.getElementById(
+                    "user-dropdown-menu"
                 );
 
                 if (
-                    !dropdownButton.contains(event.target) &&
-                    !dropdownMenu.contains(event.target)
+                    themeDropdownButton &&
+                    themeDropdownMenu &&
+                    !themeDropdownButton.contains(event.target) &&
+                    !themeDropdownMenu.contains(event.target)
                 ) {
-                    dropdownMenu.classList.add("hidden");
+                    themeDropdownMenu.classList.add("hidden");
+                }
+
+                if (
+                    userDropdownButton &&
+                    userDropdownMenu &&
+                    !userDropdownButton.contains(event.target) &&
+                    !userDropdownMenu.contains(event.target)
+                ) {
+                    userDropdownMenu.classList.add("hidden");
                 }
             });
 

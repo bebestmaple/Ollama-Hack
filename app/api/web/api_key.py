@@ -3,12 +3,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.status import HTTP_303_SEE_OTHER
 
-from app.api.web.utils import add_message, templates
+from app.api.api_v1.endpoints.auth import require_auth
+from app.api.web.utils import add_message, template_response
 from app.crud import crud_api_key
 from app.db.database import get_db
 from app.schemas.schemas import ApiKeyCreate
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 # API密钥管理页面
@@ -16,7 +17,7 @@ router = APIRouter()
 async def api_key_management(request: Request, db: Session = Depends(get_db)):
     api_keys = crud_api_key.get_api_keys(db)
 
-    return templates.TemplateResponse(
+    return template_response(
         "api_keys.html",
         {"request": request, "api_keys": api_keys, "title": "API密钥管理"},
     )

@@ -1,8 +1,9 @@
-import json
+from typing import Any, Mapping
 
 from fastapi import Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 
 from app.core.logging import get_logger
 
@@ -19,20 +20,25 @@ def add_message(request: Request, message_text: str, message_type: str = "info")
     logger.info(f"Added message to session: {message_text}")
 
 
-# 消息中间件 - 从会话中获取消息并传递给模板
-async def message_middleware(request: Request, call_next):
-    response = await call_next(request)
-    if request.session.get("messages"):
-        messages = request.session.pop("messages")
-        if isinstance(response, HTMLResponse):
-            response.context["messages"] = messages
-    return response
-
-
-# 创建带有消息的重定向响应
-def redirect_with_message(url: str, messages: list):
-    return RedirectResponse(
-        url=url,
-        status_code=303,
-        headers={"HX-Trigger": json.dumps({"showMessage": messages})},
+def template_response(
+    name: str,
+    context: dict[str, Any] | None = None,
+    status_code: int = 200,
+    headers: Mapping[str, str] | None = None,
+    media_type: str | None = None,
+    background: BackgroundTask | None = None,
+) -> HTMLResponse:
+    if context is not None:
+        request = context.get("request")
+        if request and hasattr(request, "session") and request.session.get("messages"):
+            messages = request.session.pop("messages")
+            context["messages"] = messages
+            logger.info(f"Retrieved messages from session: {messages}")
+    return templates.TemplateResponse(
+        name,
+        context,
+        status_code=status_code,
+        headers=headers,
+        media_type=media_type,
+        background=background,
     )
