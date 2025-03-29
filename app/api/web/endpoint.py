@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.status import HTTP_303_SEE_OTHER
@@ -10,7 +10,7 @@ from app.api.web.utils import add_message, template_response
 from app.crud import crud_endpoint
 from app.db.database import get_db
 from app.schemas.schemas import EndpointCreate
-from app.services.endpoint_service import check_endpoint_availability
+from app.services.endpoint_service import check_endpoints
 
 router = APIRouter(dependencies=[Depends(require_auth)])
 
@@ -28,23 +28,16 @@ async def endpoint_management(request: Request, db: Session = Depends(get_db)):
 @router.post("/endpoints/add")
 async def add_endpoint(
     request: Request,
+    background_tasks: BackgroundTasks,
     url: str = Form(...),
     name: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     try:
-        # 检查端点可用性
-        is_available, response_time = check_endpoint_availability(url)
-
         # 创建端点
         endpoint_data = EndpointCreate(url=url, name=name or url)
         db_endpoint = crud_endpoint.create_endpoint(db, endpoint_data)
-
-        # 更新端点状态
-        crud_endpoint.update_endpoint_status(
-            db, db_endpoint.id, is_available, response_time
-        )
-
+        background_tasks.add_task(check_endpoints, [db_endpoint.id])
         add_message(request, f"成功添加端点: {db_endpoint.name}", "success")
     except Exception as e:
         add_message(request, f"添加端点失败: {str(e)}", "error")
@@ -55,7 +48,10 @@ async def add_endpoint(
 # 批量导入端点
 @router.post("/endpoints/import")
 async def import_endpoints(
-    request: Request, endpoints_text: str = Form(...), db: Session = Depends(get_db)
+    request: Request,
+    background_tasks: BackgroundTasks,
+    endpoints_text: str = Form(...),
+    db: Session = Depends(get_db),
 ):
     try:
         # 解析文本中的端点
@@ -80,14 +76,8 @@ async def import_endpoints(
         # 批量创建端点
         db_endpoints = crud_endpoint.create_endpoints_bulk(db, endpoint_list)
 
-        # 异步检查每个端点的可用性
-        # for endpoint in db_endpoints:
-        #     is_available, response_time = await check_endpoint_availability(
-        #         endpoint.url
-        #     )
-        #     crud_endpoint.update_endpoint_status(
-        #         db, endpoint.id, is_available, response_time
-        #     )
+        # 启动后台任务检查端点可用性
+        background_tasks.add_task(check_endpoints, [ep.id for ep in db_endpoints])
 
         add_message(request, f"成功导入 {len(db_endpoints)} 个端点", "success")
     except Exception as e:

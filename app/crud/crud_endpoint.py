@@ -9,6 +9,16 @@ from app.schemas.schemas import EndpointCreate
 
 # 创建新端点
 def create_endpoint(db: Session, endpoint: EndpointCreate) -> Endpoint:
+    # 检查端点是否已存在
+    existing_endpoint = db.query(Endpoint).filter(Endpoint.url == endpoint.url).first()
+    if existing_endpoint:
+        # 如果已存在，更新名称
+        existing_endpoint.name = endpoint.name or existing_endpoint.url
+        db.commit()
+        db.refresh(existing_endpoint)
+        return existing_endpoint
+
+    # 如果不存在，创建新的端点
     db_endpoint = Endpoint(
         url=endpoint.url,
         name=endpoint.name or endpoint.url,
@@ -39,6 +49,14 @@ def create_endpoints_bulk(
             db.add(db_endpoint)
             db_endpoints.append(db_endpoint)
             existing_urls.add(endpoint.url)  # 添加到已存在集合中防止重复
+        else:
+            # 如果已存在，更新名称
+            existing_endpoint = (
+                db.query(Endpoint).filter(Endpoint.url == endpoint.url).first()
+            )
+            if existing_endpoint:
+                existing_endpoint.name = endpoint.name or existing_endpoint.url
+                db_endpoints.append(existing_endpoint)
 
     if db_endpoints:
         db.commit()

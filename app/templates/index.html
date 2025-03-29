@@ -29,8 +29,13 @@
                         <div
                             class="bg-blue-600 h-2.5 rounded-full dark:bg-blue-300"
                             class="dynamic-width-endpoints"
+                            {% if endpoints|length > 0 %}
                             style="width: {{ available_endpoints|length / endpoints|length * 100 }}%"
-                        ></div>
+                            {% else %}
+                            style="width: 0%"
+                            {% endif %}
+                            >
+                        </div>
                     </div>
                     <span class="ml-2 text-sm dark:text-gray-300"
                         >{{ available_endpoints|length }}/{{
@@ -129,7 +134,11 @@
                         <div
                             class="bg-purple-600 h-2.5 rounded-full dark:bg-purple-300"
                             class="dynamic-width-api-keys"
+                            {% if api_keys|length > 0 %}
                             style="width: {{ active_keys|length / api_keys|length * 100 }}%"
+                            {% else %}
+                            style="width: 0%"
+                            {% endif %}
                         ></div>
                     </div>
                     <span class="ml-2 text-sm dark:text-gray-300"

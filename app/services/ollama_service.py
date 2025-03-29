@@ -26,7 +26,7 @@ def get_best_endpoint_for_model_name(db: Session, model_name: str) -> str:
 async def send_request_to_ollama(
     endpoint_url: str, request: Dict[str, Any], stream: bool = False
 ):
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
         url = f"{endpoint_url}/v1/chat/completions"
         if stream:
             # 流式处理

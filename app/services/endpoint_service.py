@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 def check_endpoint_availability(url: str, timeout: int = 10) -> Tuple[bool, float]:
     start_time = time.time()
     try:
-        with httpx.Client(timeout=timeout) as client:
+        with httpx.Client(timeout=timeout, verify=False) as client:
             response = client.get(f"{url}/api/tags")
             elapsed = (time.time() - start_time) * 1000  # 转换为毫秒
             if response.status_code == 200:
@@ -29,7 +29,7 @@ def check_endpoint_availability(url: str, timeout: int = 10) -> Tuple[bool, floa
 
 def get_endpoint_models(url: str, timeout: int = 10) -> List[str]:
     try:
-        with httpx.Client(timeout=timeout) as client:
+        with httpx.Client(timeout=timeout, verify=False) as client:
             response = client.get(f"{url}/api/tags")
             if response.status_code == 200:
                 models = response.json().get("models", [])
@@ -59,7 +59,7 @@ def test_endpoint_performance(
         # 测试生成速度
         start_time = time.time()
         tokens_generated = 0
-        with httpx.Client(timeout=timeout) as client:
+        with httpx.Client(timeout=timeout, verify=False) as client:
             payload = {
                 "model": model_name,
                 "prompt": prompt,
@@ -69,10 +69,14 @@ def test_endpoint_performance(
             response = client.post(f"{url}/api/generate", json=payload)
             if response.status_code == 200:
                 result = response.json()
-                if "fake" in result.get("response", ""):
-                    logger.error(
-                        f"Error testing endpoint performance: {result.get('response')}"
-                    )
+                if (
+                    "fake" in result.get("response", "")
+                    or "models" in result
+                    or result.get("eval_count", 0)
+                    > len(result.get("response", "").split())
+                ):
+                    logger.warning(f"Endpoint {endpoint_id} is fake")
+                    logger.debug(f"Fake Response from ep {endpoint_id}@{url}: {result}")
                     return None
                 tokens_generated = result.get("eval_count", 0) or len(
                     result.get("response", "").split()
@@ -158,6 +162,26 @@ def test_and_update_model_performance(
         logger.error(
             f"Error testing performance for model {model_name} on endpoint {endpoint_id}: {str(e)}"
         )
+
+
+def check_endpoints(endpoint_ids: List[int]):
+    """检查所有端点的可用性"""
+    try:
+        if endpoint_ids:
+            db = SessionLocal()
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = []
+                for endpoint_id in endpoint_ids:
+                    endpoint = crud_endpoint.get_endpoint_by_id(db, endpoint_id)
+                    if endpoint:
+                        futures.append(
+                            executor.submit(check_single_endpoint, endpoint, db)
+                        )
+                for future in futures:
+                    future.result()
+    except Exception as e:
+        logger.error(f"Error in check_endpoints: {str(e)}")
+        raise e
 
 
 def check_all_endpoints():
