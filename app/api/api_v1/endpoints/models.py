@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.api_v1.endpoints.auth import require_auth
 from app.crud import crud_model, crud_performance
 from app.db.database import get_db
 from app.schemas.schemas import (
@@ -14,7 +15,7 @@ from app.schemas.schemas import (
 )
 from app.services.endpoint_service import refresh_model_performance
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 @router.get("/", response_model=ModelGetResponse)

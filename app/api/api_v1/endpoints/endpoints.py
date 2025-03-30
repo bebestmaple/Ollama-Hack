@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.api_v1.endpoints.auth import require_auth
 from app.crud import crud_endpoint
 from app.db.database import get_db
 from app.schemas.schemas import (
@@ -13,7 +14,7 @@ from app.schemas.schemas import (
 )
 from app.services.endpoint_service import check_endpoint_availability
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_auth)])
 
 
 @router.post("/", response_model=Endpoint)
