@@ -98,7 +98,7 @@ async def chat_completions(
                 async for chunk in send_request_to_ollama(
                     endpoint_url, request, stream=True
                 ):
-                    logger.info(f"Stream chunk: {chunk}")
+                    logger.debug(f"Stream chunk: {chunk}")
                     yield chunk
 
             return StreamingResponse(generate_stream(), media_type="text/event-stream")
