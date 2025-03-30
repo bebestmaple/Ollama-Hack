@@ -1,5 +1,7 @@
 # Ollama-Hack 🚀
 
+[English](README.EN.md) | [简体中文](README.md)
+
 ![主页](./assets/index.png)
 
 ## 📖 简介
@@ -33,6 +35,7 @@
 
 ```bash
 git clone https://github.com/timlzh/Ollama-Hack.git
+cd Ollama-Hack
 # 构建并启动容器
 docker-compose up -d
 

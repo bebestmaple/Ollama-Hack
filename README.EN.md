@@ -35,6 +35,7 @@ If you have Docker and Docker Compose installed, you can start with these comman
 
 ```bash
 git clone https://github.com/timlzh/Ollama-Hack.git
+cd Ollama-Hack
 # Build and start containers
 docker-compose up -d
 
