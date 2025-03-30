@@ -26,13 +26,13 @@ async def lifespan(app: FastAPI):
 
     # 创建调度器
     scheduler = BackgroundScheduler()
-    scheduler.add_job(check_all_endpoints, "interval", hours=5)
+    scheduler.add_job(check_all_endpoints, "interval", days=1)
     scheduler.start()
 
     yield
 
     # 应用关闭时关闭调度器
-    scheduler.shutdown()
+    scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)

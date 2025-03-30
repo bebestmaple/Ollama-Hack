@@ -100,13 +100,18 @@ def get_endpoint_by_id(db: Session, endpoint_id: int) -> Optional[Endpoint]:
 
 # 更新端点状态
 def update_endpoint_status(
-    db: Session, endpoint_id: int, is_available: bool, response_time: float = 0.0
+    db: Session,
+    endpoint_id: int,
+    is_available: bool,
+    response_time: float = 0.0,
+    is_fake: bool = False,
 ) -> Endpoint:
     db_endpoint = db.query(Endpoint).filter(Endpoint.id == endpoint_id).first()
     if db_endpoint:
         db_endpoint.is_available = is_available
         db_endpoint.last_checked = datetime.utcnow()
         db_endpoint.response_time = response_time
+        db_endpoint.is_fake = is_fake
         db.commit()
         db.refresh(db_endpoint)
     return db_endpoint

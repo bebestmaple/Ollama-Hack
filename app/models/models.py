@@ -31,6 +31,7 @@ class Endpoint(Base):
     name = Column(String, index=True)
     is_active = Column(Boolean, default=True)
     is_available = Column(Boolean, default=False)
+    is_fake = Column(Boolean, default=False)
     last_checked = Column(DateTime, default=datetime.utcnow)
     response_time = Column(Float, default=0.0)  # 毫秒
 

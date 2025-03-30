@@ -1,3 +1,4 @@
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Tuple
@@ -12,6 +13,9 @@ from app.models.models import Endpoint
 from app.schemas.schemas import PerformanceTestCreate
 
 logger = get_logger(__name__)
+
+# 创建一个全局的数据库锁
+db_lock = threading.Lock()
 
 
 def check_endpoint_availability(url: str, timeout: int = 10) -> Tuple[bool, float]:
@@ -69,14 +73,12 @@ def test_endpoint_performance(
             response = client.post(f"{url}/api/generate", json=payload)
             if response.status_code == 200:
                 result = response.json()
-                if (
-                    "fake" in result.get("response", "")
-                    or "models" in result
-                    or result.get("eval_count", 0)
-                    > len(result.get("response", "").split())
-                ):
+                if "fake" in result.get("response", "") or "models" in result:
                     logger.warning(f"Endpoint {endpoint_id} is fake")
                     logger.debug(f"Fake Response from ep {endpoint_id}@{url}: {result}")
+                    crud_endpoint.update_endpoint_status(
+                        db, endpoint_id, False, 0, True
+                    )
                     return None
                 tokens_generated = result.get("eval_count", 0) or len(
                     result.get("response", "").split()
@@ -102,30 +104,40 @@ def test_endpoint_performance(
 def check_single_endpoint(endpoint: Endpoint, db: Session):
     try:
         is_available, response_time = check_endpoint_availability(endpoint.url)
-        crud_endpoint.update_endpoint_status(
-            db, endpoint.id, is_available, response_time
-        )
+        with db_lock:
+            crud_endpoint.update_endpoint_status(
+                db, endpoint.id, is_available, response_time
+            )
 
         # 如果端点可用，获取并更新支持的模型
         if is_available:
             model_names = get_endpoint_models(endpoint.url)
-            for model_name in model_names:
-                model = crud_model.get_or_create_model(db, model_name)
-                crud_endpoint.associate_endpoint_with_model(db, endpoint.id, model.id)
+            with db_lock:
+                for model_name in model_names:
+                    model = crud_model.get_or_create_model(db, model_name)
+                    crud_endpoint.associate_endpoint_with_model(
+                        db, endpoint.id, model.id
+                    )
 
             # 创建并发测试模型性能的任务
             performance_tasks = []
-            for model_name in model_names:
-                model = crud_model.get_model_by_name(db, model_name)
-                if model:
-                    performance_tasks.append((db, endpoint.id, model_name, model.id))
+            with db_lock:
+                for model_name in model_names:
+                    model = crud_model.get_model_by_name(db, model_name)
+                    if model:
+                        performance_tasks.append((endpoint.id, model_name, model.id))
 
             # 并发执行所有模型的性能测试（最大 5 个线程）
             if performance_tasks:
                 with ThreadPoolExecutor(max_workers=5) as executor:
                     futures = [
-                        executor.submit(test_and_update_model_performance, *args)
-                        for args in performance_tasks
+                        executor.submit(
+                            test_and_update_model_performance,
+                            endpoint.id,
+                            task[1],
+                            task[2],
+                        )
+                        for task in performance_tasks
                     ]
                     for future in futures:
                         future.result()
@@ -133,35 +145,39 @@ def check_single_endpoint(endpoint: Endpoint, db: Session):
         logger.error(f"Error checking endpoint {endpoint.url}: {str(e)}")
 
 
-def test_and_update_model_performance(
-    db: Session, endpoint_id: int, model_name: str, model_id: int
-):
+def test_and_update_model_performance(endpoint_id: int, model_name: str, model_id: int):
+    db = SessionLocal()
     try:
         performance = test_endpoint_performance(endpoint_id, model_name)
-        if performance:
-            test_data = PerformanceTestCreate(
-                endpoint_id=endpoint_id,
-                model_id=model_id,
-                tokens_per_second=performance["tokens_per_second"],
-                response_time=performance["response_time"],
-            )
-            crud_performance.create_performance_test(db, test_data)
-
-            # 更新首选端点（如果尚未手动设置）
-            if not crud_model.get_model_by_id(db, model_id).preferred_endpoint_id:
-                best_endpoint = crud_performance.get_best_endpoint_for_model(
-                    db, model_id
+        with db_lock:
+            if performance:
+                test_data = PerformanceTestCreate(
+                    endpoint_id=endpoint_id,
+                    model_id=model_id,
+                    tokens_per_second=performance["tokens_per_second"],
+                    response_time=performance["response_time"],
                 )
-                if best_endpoint:
-                    crud_model.update_preferred_endpoint(db, model_id, best_endpoint.id)
-        else:
-            crud_performance.delete_performance_test_if_exists(
-                db, model_id, endpoint_id
-            )
+                crud_performance.create_performance_test(db, test_data)
+
+                # 更新首选端点（如果尚未手动设置）
+                if not crud_model.get_model_by_id(db, model_id).preferred_endpoint_id:
+                    best_endpoint = crud_performance.get_best_endpoint_for_model(
+                        db, model_id
+                    )
+                    if best_endpoint:
+                        crud_model.update_preferred_endpoint(
+                            db, model_id, best_endpoint.id
+                        )
+            else:
+                crud_performance.delete_performance_test_if_exists(
+                    db, model_id, endpoint_id
+                )
     except Exception as e:
         logger.error(
             f"Error testing performance for model {model_name} on endpoint {endpoint_id}: {str(e)}"
         )
+    finally:
+        db.close()
 
 
 def check_endpoints(endpoint_ids: List[int]):
@@ -169,16 +185,20 @@ def check_endpoints(endpoint_ids: List[int]):
     try:
         if endpoint_ids:
             db = SessionLocal()
-            with ThreadPoolExecutor(max_workers=5) as executor:
-                futures = []
-                for endpoint_id in endpoint_ids:
-                    endpoint = crud_endpoint.get_endpoint_by_id(db, endpoint_id)
-                    if endpoint:
-                        futures.append(
-                            executor.submit(check_single_endpoint, endpoint, db)
-                        )
-                for future in futures:
-                    future.result()
+            try:
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    futures = []
+                    for endpoint_id in endpoint_ids:
+                        with db_lock:
+                            endpoint = crud_endpoint.get_endpoint_by_id(db, endpoint_id)
+                        if endpoint:
+                            futures.append(
+                                executor.submit(check_single_endpoint, endpoint, db)
+                            )
+                    for future in futures:
+                        future.result()
+            finally:
+                db.close()
     except Exception as e:
         logger.error(f"Error in check_endpoints: {str(e)}")
         raise e
@@ -187,7 +207,8 @@ def check_endpoints(endpoint_ids: List[int]):
 def check_all_endpoints():
     db = SessionLocal()
     try:
-        endpoints = crud_endpoint.get_active_endpoints(db)
+        with db_lock:
+            endpoints = crud_endpoint.get_active_endpoints(db)
         if endpoints:
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [
@@ -205,11 +226,12 @@ def check_all_endpoints():
 def refresh_available_models(db: Session):
     """单独刷新所有可用端点的模型列表"""
     try:
-        endpoints = crud_endpoint.get_available_endpoints(db)
+        with db_lock:
+            endpoints = crud_endpoint.get_available_endpoints(db)
         if endpoints:
             with ThreadPoolExecutor(max_workers=5) as executor:
                 futures = [
-                    executor.submit(refresh_endpoint_models, endpoint, db)
+                    executor.submit(refresh_endpoint_models, endpoint)
                     for endpoint in endpoints
                 ]
                 count = len(futures)
@@ -223,16 +245,20 @@ def refresh_available_models(db: Session):
         raise e
 
 
-def refresh_endpoint_models(endpoint: Endpoint, db: Session):
+def refresh_endpoint_models(endpoint: Endpoint):
+    db = SessionLocal()
     try:
         # 获取端点支持的模型列表
         model_names = get_endpoint_models(endpoint.url)
         logger.info(f"Found models {model_names} for endpoint {endpoint.url}")
         model_tasks = []
-        for model_name in model_names:
-            model = crud_model.get_or_create_model(db, model_name)
-            crud_endpoint.associate_endpoint_with_model(db, endpoint.id, model.id)
-            model_tasks.append((db, endpoint.id, model_name, model.id))
+
+        with db_lock:
+            for model_name in model_names:
+                model = crud_model.get_or_create_model(db, model_name)
+                crud_endpoint.associate_endpoint_with_model(db, endpoint.id, model.id)
+                model_tasks.append((endpoint.id, model_name, model.id))
+
         # 并发执行所有模型的性能测试（最大 5 个线程）
         if model_tasks:
             with ThreadPoolExecutor(max_workers=5) as executor:
@@ -246,50 +272,59 @@ def refresh_endpoint_models(endpoint: Endpoint, db: Session):
                     future.result()
     except Exception as e:
         logger.error(f"Error refreshing models for endpoint {endpoint.url}: {str(e)}")
+    finally:
+        db.close()
 
 
 def test_and_update_model_performance_for_refresh(
-    db: Session, endpoint_id: int, model_name: str, model_id: int
+    endpoint_id: int, model_name: str, model_id: int
 ):
+    db = SessionLocal()
     try:
         performance = test_endpoint_performance(endpoint_id, model_name)
-        if performance:
-            test_data = PerformanceTestCreate(
-                endpoint_id=endpoint_id,
-                model_id=model_id,
-                tokens_per_second=performance["tokens_per_second"],
-                response_time=performance["response_time"],
-            )
-            crud_performance.create_performance_test(db, test_data)
-
-            # 更新首选端点（如果尚未手动设置）
-            model = crud_model.get_model_by_id(db, model_id)
-            if model and not model.preferred_endpoint_id:
-                best_endpoint = crud_performance.get_best_endpoint_for_model(
-                    db, model_id
+        with db_lock:
+            if performance:
+                test_data = PerformanceTestCreate(
+                    endpoint_id=endpoint_id,
+                    model_id=model_id,
+                    tokens_per_second=performance["tokens_per_second"],
+                    response_time=performance["response_time"],
                 )
-                if best_endpoint:
-                    crud_model.update_preferred_endpoint(db, model_id, best_endpoint.id)
+                crud_performance.create_performance_test(db, test_data)
+
+                # 更新首选端点（如果尚未手动设置）
+                model = crud_model.get_model_by_id(db, model_id)
+                if model and not model.preferred_endpoint_id:
+                    best_endpoint = crud_performance.get_best_endpoint_for_model(
+                        db, model_id
+                    )
+                    if best_endpoint:
+                        crud_model.update_preferred_endpoint(
+                            db, model_id, best_endpoint.id
+                        )
     except Exception as e:
         logger.error(
             f"Error testing performance for model {model_name} on endpoint {endpoint_id}: {str(e)}"
         )
+    finally:
+        db.close()
 
 
 def refresh_model_performance(db: Session, model_id: int):
     """刷新单个模型在所有支持的端点上的性能测试"""
     try:
         # 获取模型信息
-        model = crud_model.get_model_by_id(db, model_id)
-        if not model:
-            logger.error(f"找不到ID为 {model_id} 的模型")
-            return
+        with db_lock:
+            model = crud_model.get_model_by_id(db, model_id)
+            if not model:
+                logger.error(f"找不到ID为 {model_id} 的模型")
+                return
 
-        # 查找支持该模型的所有端点
-        supporting_endpoints = []
-        for endpoint in model.endpoints:
-            if endpoint.is_active and endpoint.is_available:
-                supporting_endpoints.append(endpoint)
+            # 查找支持该模型的所有端点
+            supporting_endpoints = []
+            for endpoint in model.endpoints:
+                if endpoint.is_active and endpoint.is_available:
+                    supporting_endpoints.append(endpoint)
 
         if not supporting_endpoints:
             logger.warning(f"模型 {model.name} 没有支持的可用端点")
@@ -302,7 +337,7 @@ def refresh_model_performance(db: Session, model_id: int):
         # 为每个端点创建性能测试任务
         test_tasks = []
         for endpoint in supporting_endpoints:
-            test_tasks.append((db, endpoint.id, model.name, model.id))
+            test_tasks.append((endpoint.id, model.name, model.id))
 
         # 使用线程池并发执行所有端点的性能测试（最大5个线程）
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -317,13 +352,16 @@ def refresh_model_performance(db: Session, model_id: int):
                     logger.error(f"执行性能测试时发生错误: {str(e)}")
 
         # 更新首选端点（如果尚未手动设置）
-        if not model.user_assigned_preference:
-            best_endpoint = crud_performance.get_best_endpoint_for_model(db, model.id)
-            if best_endpoint:
-                crud_model.update_preferred_endpoint(db, model.id, best_endpoint.id)
-                logger.info(
-                    f"已为模型 {model.name} 更新首选端点为 {best_endpoint.name}"
+        with db_lock:
+            if not model.user_assigned_preference:
+                best_endpoint = crud_performance.get_best_endpoint_for_model(
+                    db, model.id
                 )
+                if best_endpoint:
+                    crud_model.update_preferred_endpoint(db, model.id, best_endpoint.id)
+                    logger.info(
+                        f"已为模型 {model.name} 更新首选端点为 {best_endpoint.name}"
+                    )
 
         logger.info(f"已完成模型 {model.name} 的性能测试刷新")
 

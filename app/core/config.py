@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Ollama 中转平台"
     API_V1_STR: str = "/api/v1"
+    LOG_LEVEL: str = "DEBUG"
 
     # 数据库配置
     DATABASE_URL: str = "sqlite:///./data/data.db"

@@ -4,10 +4,12 @@ from typing import Optional
 
 from loguru import logger
 
+from app.core.config import settings
+
 
 def get_logger(
     name: str = "OllamaHack",
-    level: str = "INFO",
+    level: str = settings.LOG_LEVEL,
     log_file: Optional[str] = None,
     rotation: str = "10 MB",
     retention: str = "1 week",
@@ -56,7 +58,9 @@ def get_logger(
 
 
 def configure_app_logging(
-    app_name: str = "OllamaHack", log_level: str = "INFO", log_dir: Optional[str] = None
+    app_name: str = "OllamaHack",
+    log_level: str = settings.LOG_LEVEL,
+    log_dir: Optional[str] = None,
 ) -> logger:
     """
     配置应用程序的日志系统

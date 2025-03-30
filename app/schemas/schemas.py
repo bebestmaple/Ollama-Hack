@@ -18,6 +18,7 @@ class EndpointInDB(EndpointBase):
     id: int
     is_active: bool
     is_available: bool
+    is_fake: bool
     last_checked: datetime
     response_time: float
 
