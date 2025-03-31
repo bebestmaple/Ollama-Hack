@@ -1,25 +1,65 @@
-from typing import Any, Dict
+from threading import Lock
+from typing import Any, Dict, List, Optional
 
 import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.crud import crud_model, crud_performance
+from app.core.logging import get_logger
+from app.crud import crud_model
+from app.models.models import Endpoint, PerformanceTest
+
+db_lock = Lock()
+logger = get_logger(__name__)
+
+
+# 获取支持指定模型的所有端点URL，按tokens per second降序排序
+def get_endpoints_for_model_name(db: Session, model_name: str) -> List[str]:
+    """获取支持指定模型的所有端点URL，按tokens per second降序排序"""
+    with db_lock:
+        model = crud_model.get_model_by_name(db, model_name)
+        if not model:
+            logger.warning(f"Model {model_name} not found")
+            return []
+
+        # 获取支持该模型的所有端点的性能测试记录
+        performance_tests = (
+            db.query(PerformanceTest)
+            .filter(
+                PerformanceTest.model_id == model.id,
+                PerformanceTest.tokens_per_second > 0,
+            )
+            .order_by(PerformanceTest.tokens_per_second.desc())
+            .all()
+        )
+
+        # 获取这些端点的URL
+        endpoint_ids = [test.endpoint_id for test in performance_tests]
+        endpoints = (
+            db.query(Endpoint)
+            .filter(
+                Endpoint.id.in_(endpoint_ids),
+                Endpoint.is_available,
+                Endpoint.is_active,
+                Endpoint.is_fake == False,
+            )
+            .all()
+        )
+
+        # 按照性能测试记录的顺序排序端点
+        endpoint_dict = {endpoint.id: endpoint for endpoint in endpoints}
+        sorted_endpoints = [
+            endpoint_dict[id] for id in endpoint_ids if id in endpoint_dict
+        ]
+
+        return [endpoint.url for endpoint in sorted_endpoints]
 
 
 # 通过模型名称获取最佳端点
-def get_best_endpoint_for_model_name(db: Session, model_name: str) -> str:
-    model = crud_model.get_model_by_name(db, model_name)
-    if not model:
-        raise HTTPException(status_code=404, detail=f"Model {model_name} not found")
-
-    best_endpoint = crud_performance.get_best_endpoint_for_model(db, model.id)
-    if not best_endpoint:
-        raise HTTPException(
-            status_code=404, detail=f"No available endpoint for model {model_name}"
-        )
-
-    return best_endpoint.url
+def get_best_endpoint_for_model_name(db: Session, model_name: str) -> Optional[str]:
+    """获取支持指定模型的最佳端点URL（向后兼容）"""
+    endpoints = get_endpoints_for_model_name(db, model_name)
+    return endpoints[0] if endpoints else None
 
 
 # 向Ollama端点发送请求
