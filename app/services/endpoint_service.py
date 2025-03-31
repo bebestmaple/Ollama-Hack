@@ -142,7 +142,7 @@ def check_single_endpoint(endpoint: Endpoint, db: Session):
                     for future in futures:
                         future.result()
     except Exception as e:
-        logger.error(f"Error checking endpoint {endpoint.url}: {str(e)}")
+        logger.error(f"Error checking endpoint: {str(e)}")
 
 
 def test_and_update_model_performance(endpoint_id: int, model_name: str, model_id: int):
