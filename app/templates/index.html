@@ -29,12 +29,13 @@
                         <div
                             class="bg-blue-600 h-2.5 rounded-full dark:bg-blue-300"
                             class="dynamic-width-endpoints"
-                            {% if endpoints|length > 0 %}
-                            style="width: {{ available_endpoints|length / endpoints|length * 100 }}%"
-                            {% else %}
-                            style="width: 0%"
-                            {% endif %}
-                            >
+                            {%
+                            if
+                            endpoints|length
+                        >
+                            0 %} style="width: {{ available_endpoints|length /
+                            endpoints|length * 100 }}%" {% else %} style="width:
+                            0%" {% endif %} >
                         </div>
                     </div>
                     <span class="ml-2 text-sm dark:text-gray-300"
@@ -134,12 +135,14 @@
                         <div
                             class="bg-purple-600 h-2.5 rounded-full dark:bg-purple-300"
                             class="dynamic-width-api-keys"
-                            {% if api_keys|length > 0 %}
-                            style="width: {{ active_keys|length / api_keys|length * 100 }}%"
-                            {% else %}
-                            style="width: 0%"
-                            {% endif %}
-                        ></div>
+                            {%
+                            if
+                            api_keys|length
+                        >
+                            0 %} style="width: {{ active_keys|length /
+                            api_keys|length * 100 }}%" {% else %} style="width:
+                            0%" {% endif %} >
+                        </div>
                     </div>
                     <span class="ml-2 text-sm dark:text-gray-300"
                         >{{ active_keys|length }}/{{ api_keys|length }}</span
@@ -170,38 +173,24 @@
         <div
             class="bg-gray-50 p-4 rounded-lg dark:bg-gray-700 dark:text-gray-300"
         >
-            <h3 class="font-semibold mb-2">API基础URL</h3>
+            <h3 class="font-semibold mb-2">OpenAI Compatible API</h3>
             <code class="bg-gray-200 px-2 py-1 rounded text-sm dark:bg-gray-600"
                 >http://your-server-address:8000/api/v1/ollama</code
             >
 
-            <h3 class="font-semibold mt-4 mb-2">支持的接口</h3>
+            <h3 class="font-semibold mt-4 mb-2">接口兼容性</h3>
             <p class="text-sm text-gray-600 mb-2 dark:text-gray-300">
-                接口的返回结构和内容都与直接使用 Ollama 无异 (OpenAI Compatible
-                API)，你可以在任何支持 OpenAI Compatible API 的地方使用它。
+                理论上支持 Ollama 支持的所有 OpenAI Compatible API，具体列表见：
+                <a
+                    href="https://github.com/ollama/ollama/blob/main/docs/openai.md"
+                    >Ollama/OpenAI Compability</a
+                >，接口的返回结构和内容都与直接使用 Ollama 无异。
             </p>
-            <ul class="list-disc list-inside space-y-2 text-sm">
-                <li>
-                    <code class="bg-gray-200 px-2 py-1 rounded dark:bg-gray-600"
-                        >GET /api/v1/ollama/models</code
-                    >
-                    <span class="ml-2 text-gray-600 dark:text-gray-300"
-                        >获取所有可用模型</span
-                    >
-                </li>
-                <li>
-                    <code class="bg-gray-200 px-2 py-1 rounded dark:bg-gray-600"
-                        >POST /api/v1/ollama/chat/completions</code
-                    >
-                    <span class="ml-2 text-gray-600 dark:text-gray-300"
-                        >兼容OpenAI的聊天补全API</span
-                    >
-                </li>
-            </ul>
 
             <h3 class="font-semibold mt-4 mb-2">认证</h3>
             <p class="text-sm text-gray-600 mb-2 dark:text-gray-300">
-                所有API请求需要提供API密钥。您可以通过以下两种方式之一来提供密钥：
+                API 请求需要提供 API
+                密钥。您可以通过以下两种方式之一来提供密钥：
             </p>
             <ul class="list-disc list-inside space-y-1 text-sm">
                 <li>

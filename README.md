@@ -81,10 +81,7 @@ curl -N -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
   }'
 ```
 
-支持的主要 API 端点：
-
--   `GET /api/v1/ollama/models` - 获取所有可用模型
--   `POST /api/v1/ollama/chat/completions` - 兼容 OpenAI 的聊天补全 API
+理论上支持 Ollama 支持的所有 OpenAI Compatible API，具体列表见：[Ollama/OpenAI Compability](https://github.com/ollama/ollama/blob/main/docs/openai.md)，接口的返回结构和内容都与直接使用 Ollama 无异。
 
 ## 👤 作者
 

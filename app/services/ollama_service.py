@@ -1,3 +1,4 @@
+import json as json_lib
 from threading import Lock
 from typing import Any, Dict, List, Optional
 
@@ -15,18 +16,22 @@ logger = get_logger(__name__)
 
 
 class JsonHTTPException(Exception):
-    def __init__(self, status_code: int, json_response: Dict[str, Any] | str):
+    def __init__(self, status_code: int, response: Dict[str, Any] | str):
         """
         自定义异常类，用于处理JSON响应
         :param json_response: JSON响应内容
         """
         self.status_code = status_code
-        if isinstance(json_response, str):
-            json_response = {"detail": json_response}
-        elif not isinstance(json_response, dict):
-            raise ValueError("json_response must be a dict or str")
-        self.json_response = json_response
-        super().__init__(json_response)
+        if isinstance(response, str):
+            try:
+                response = json_lib.loads(response)
+            except json_lib.JSONDecodeError:
+                response = {
+                    "detail": response,
+                }
+
+        self.json_response = response
+        super().__init__(response)
 
 
 def json_http_exception_handler(request, exc: JsonHTTPException):
@@ -99,60 +104,111 @@ def get_best_endpoint_for_model_name(db: Session, model_name: str) -> Optional[s
     return endpoints[0] if endpoints else None
 
 
-# 向Ollama端点发送请求
-async def send_chat_completions_request_to_ollama(
-    endpoint_url: str, request: Dict[str, Any], stream: bool = False
+async def send_request_to_ollama(
+    url: str,
+    method: str,
+    headers: Optional[Dict[str, str]] = None,
+    params: Optional[Dict[str, str]] = None,
+    json: Optional[Dict[str, Any]] = None,
+    data: Optional[Dict[str, Any]] = None,
+    files: Optional[Dict[str, Any]] = None,
+    stream: bool = False,
 ):
-    async with httpx.AsyncClient(timeout=60.0, verify=False) as client:
-        url = f"{endpoint_url}/v1/chat/completions"
+    async with httpx.AsyncClient(timeout=20.0, verify=False) as client:
         if stream:
-            # 流式处理
             async with client.stream(
-                "POST",
+                method,
                 url,
-                json=request,
-                timeout=None,
+                headers=headers,
+                params=params,
+                json=json,
+                data=data,
+                files=files,
             ) as response:
                 if response.status_code != 200:
-                    resp = await response.aread()
-                    raise HTTPException(
+                    resp_raw = (await response.aread()).decode()
+                    raise JsonHTTPException(
                         status_code=response.status_code,
-                        detail=f"Ollama API error: {resp.decode()}",  # 读取错误信息
+                        response=resp_raw,
                     )
 
                 async for chunk in response.aiter_text():
                     yield chunk
-
         else:
-            # 一次性处理
-            response = await client.post(url, json=request)
+            response = await client.request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                json=json,
+                data=data,
+                files=files,
+            )
             if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Ollama API error: {response.text}",
-                )
-
-            yield response.text
-
-
-# 获取模型详情
-async def send_model_info_request_to_ollama(endpoint_url: str, model_name: str):
-    async with httpx.AsyncClient(timeout=20.0, verify=False) as client:
-        url = f"{endpoint_url}/v1/models/{model_name}"
-        # 发送请求到Ollama获取模型详情
-        response = await client.get(url)
-
-        if response.status_code != 200:
-            if json_response := response.json():
-                # 如果响应是JSON格式，解析并返回
                 raise JsonHTTPException(
                     status_code=response.status_code,
-                    json_response=json_response,
+                    response=response.text,
                 )
+            yield response.json()
 
-            raise JsonHTTPException(
-                status_code=response.status_code,
-                json_response=f"Failed to get model info: {response.text}",
-            )
 
-        return response.json()
+async def send_request_to_best_endpoint(
+    db: Session,
+    model_name: str,
+    path: str,
+    method: str,
+    headers: Optional[Dict[str, str]] = None,
+    params: Optional[Dict[str, str]] = None,
+    json: Optional[Dict[str, Any]] = None,
+    data: Optional[Dict[str, Any]] = None,
+    files: Optional[Dict[str, Any]] = None,
+    stream: bool = False,
+):
+    endpoints = get_endpoints_for_model_name(db, model_name)
+    if not endpoints:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No available endpoints for model {model_name}",
+        )
+
+    last_exp = None
+    for endpoint in endpoints:
+        url = f"{endpoint}/{path}"
+        try:
+            if stream:
+                return send_request_to_ollama(
+                    url,
+                    method,
+                    headers=headers,
+                    params=params,
+                    json=json,
+                    data=data,
+                    files=files,
+                    stream=stream,
+                )
+            else:
+                chunks = []
+                async for chunk in send_request_to_ollama(
+                    url,
+                    method,
+                    headers=headers,
+                    params=params,
+                    json=json,
+                    data=data,
+                    files=files,
+                    stream=stream,
+                ):
+                    chunks.append(chunk)
+                if len(chunks) == 1:
+                    return chunks[0]
+                else:
+                    try:
+                        return json_lib.loads("".join(chunks))
+                    except json_lib.JSONDecodeError:
+                        # 如果解析失败，返回原始字符串
+                        return "".join(chunks)
+        except Exception as e:
+            last_exp = e
+            continue
+    if last_exp:
+        raise last_exp

@@ -81,10 +81,7 @@ curl -N -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
   }'
 ```
 
-Main supported API endpoints:
-
--   `GET /api/v1/ollama/models` - Get all available models
--   `POST /api/v1/ollama/chat/completions` - OpenAI-compatible chat completion API
+Theoretically compatible with all OpenAI-compatible APIs supported by Ollama. For a detailed list, see [Ollama/OpenAI Compatibility](https://github.com/ollama/ollama/blob/main/docs/openai.md). The structure and content of the API responses are identical to those when using Ollama directly.
 
 ## 👤 Author
 
