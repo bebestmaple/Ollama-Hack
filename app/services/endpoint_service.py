@@ -197,6 +197,9 @@ def check_endpoints(endpoint_ids: List[int]):
                             )
                     for future in futures:
                         future.result()
+                logger.info("Endpoints checked successfully.")
+            except Exception as e:
+                logger.error(f"Error checking endpoints: {str(e)}")
             finally:
                 db.close()
     except Exception as e:
@@ -217,6 +220,7 @@ def check_all_endpoints():
                 ]
                 for future in futures:
                     future.result()
+        logger.info("All endpoints checked successfully.")
     except Exception as e:
         logger.error(f"Error in check_all_endpoints: {str(e)}")
     finally:

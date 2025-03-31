@@ -175,8 +175,7 @@
         </table>
     </div>
 </div>
-
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <script>
     // 创建API密钥表单切换
     document
@@ -199,12 +198,54 @@
     document.querySelectorAll(".copy-btn").forEach(function (button) {
         button.addEventListener("click", function () {
             const key = this.getAttribute("data-key");
-            navigator.clipboard.writeText(key).then(
+
+            // 创建复制函数，带有fallback方案
+            function copyTextToClipboard(text) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    // 安全上下文中使用Clipboard API
+                    return navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback方案：创建临时textarea元素
+                    let textArea = document.createElement("textarea");
+                    textArea.value = text;
+
+                    // 设置样式使元素不可见
+                    textArea.style.position = "fixed";
+                    textArea.style.top = "0";
+                    textArea.style.left = "0";
+                    textArea.style.width = "2em";
+                    textArea.style.height = "2em";
+                    textArea.style.padding = "0";
+                    textArea.style.border = "none";
+                    textArea.style.outline = "none";
+                    textArea.style.boxShadow = "none";
+                    textArea.style.background = "transparent";
+
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+
+                    try {
+                        document.execCommand("copy");
+                        return Promise.resolve();
+                    } catch (err) {
+                        return Promise.reject(err);
+                    } finally {
+                        document.body.removeChild(textArea);
+                    }
+                }
+            }
+
+            // 执行复制操作
+            copyTextToClipboard(key).then(
                 function () {
-                    alert("API密钥已复制到剪贴板");
+                    // alert("API密钥已复制到剪贴板");
+                    showNotification("API密钥已复制到剪贴板", "success");
                 },
                 function (err) {
                     console.error("无法复制API密钥: ", err);
+                    // alert("复制失败，请手动复制：" + key);
+                    showNotification("复制失败，请手动复制：" + key, "error");
                 }
             );
         });
@@ -216,18 +257,30 @@
             const id = this.getAttribute("data-id");
             const key = this.getAttribute("data-key");
             const keyText = document.getElementById("key-" + id);
+
+            if (!keyText) {
+                console.error("找不到元素: key-" + id);
+                return;
+            }
+
             const icon = this.querySelector("i");
 
             if (keyText.textContent.includes("...")) {
+                // 显示完整密钥
                 keyText.textContent = key;
                 icon.classList.remove("fa-eye");
                 icon.classList.add("fa-eye-slash");
+                this.setAttribute("title", "隐藏密钥");
             } else {
-                keyText.textContent = key.substr(0, 6) + "..." + key.substr(-4);
+                // 隐藏密钥
+                const firstSix = key.substring(0, 6);
+                const lastFour = key.substring(key.length - 4);
+                keyText.textContent = firstSix + "..." + lastFour;
                 icon.classList.remove("fa-eye-slash");
                 icon.classList.add("fa-eye");
+                this.setAttribute("title", "显示密钥");
             }
         });
     });
 </script>
-{% endblock %} {% endblock %}
+{% endblock %}
