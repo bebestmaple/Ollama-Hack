@@ -9,8 +9,10 @@ from app.core.logging import get_logger
 from app.crud import crud_api_key, crud_model
 from app.db.database import get_db
 from app.services.ollama_service import (
+    JsonHTTPException,
     get_endpoints_for_model_name,
-    send_request_to_ollama,
+    send_chat_completions_request_to_ollama,
+    send_model_info_request_to_ollama,
 )
 
 logger = get_logger(__name__)
@@ -72,6 +74,57 @@ async def list_models(db: Session = Depends(get_db)):
     return {"object": "list", "data": openai_models}
 
 
+@router.get("/models/{model_name}", response_model=Dict[str, Any])
+async def get_model(
+    model_name: str, db: Session = Depends(get_db), _: Any = Depends(verify_api_key)
+):
+    """获取指定模型的详细信息"""
+    model = crud_model.get_model_by_name(db, model_name)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    # 获取支持该模型的所有端点，按性能排序
+    endpoint_urls = get_endpoints_for_model_name(db, model_name)
+    if not endpoint_urls:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No available endpoints found for model {model_name}",
+        )
+
+    logger.info(f"{len(endpoint_urls)} endpoints found for model {model_name}")
+
+    exp = None
+    try:
+        for endpoint_url in endpoint_urls:
+            try:
+                # 向端点发送请求以获取模型信息
+                return await send_model_info_request_to_ollama(endpoint_url, model_name)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to get model info from {endpoint_url}: {str(e)}"
+                )
+                continue
+        # 如果所有端点都失败，抛出异常
+        raise (
+            exp
+            if exp
+            else HTTPException(
+                status_code=500,
+                detail="Failed to get model info from all endpoints",
+            )
+        )
+    except JsonHTTPException:
+        raise
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get model info: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to get model info from all endpoints",
+        )
+
+
 async def try_send_request(
     endpoint_url: str, request: Dict[str, Any], stream: bool = False
 ):
@@ -79,10 +132,14 @@ async def try_send_request(
     try:
         if stream:
             # 直接返回异步生成器，而不是包装它的函数
-            return send_request_to_ollama(endpoint_url, request, stream=True)
+            return send_chat_completions_request_to_ollama(
+                endpoint_url, request, stream=True
+            )
         else:
             chunks = []
-            async for chunk in send_request_to_ollama(endpoint_url, request):
+            async for chunk in send_chat_completions_request_to_ollama(
+                endpoint_url, request
+            ):
                 chunks.append(chunk)
             return "".join(chunks)
     except Exception as e:

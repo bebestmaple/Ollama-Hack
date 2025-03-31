@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.utils import create_initial_admin_if_needed
 from app.db.database import Base, engine
 from app.services.endpoint_service import check_all_endpoints
+from app.services.ollama_service import initJsonHTTPException
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -36,6 +37,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.PROJECT_NAME, lifespan=lifespan)
+
+# 添加异常处理器
+initJsonHTTPException(app)
 
 # 添加会话中间件
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
