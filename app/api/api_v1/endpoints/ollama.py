@@ -71,101 +71,6 @@ async def list_models(db: Session = Depends(get_db)):
     return {"object": "list", "data": openai_models}
 
 
-# async def try_send_request(
-#     endpoint_url: str, request: Dict[str, Any], stream: bool = False
-# ):
-#     """尝试向端点发送请求，如果失败则抛出异常"""
-#     try:
-#         if stream:
-#             # 直接返回异步生成器，而不是包装它的函数
-#             return send_chat_completions_request_to_ollama(
-#                 endpoint_url, request, stream=True
-#             )
-#         else:
-#             chunks = []
-#             async for chunk in send_chat_completions_request_to_ollama(
-#                 endpoint_url, request
-#             ):
-#                 chunks.append(chunk)
-#             return "".join(chunks)
-#     except Exception as e:
-#         logger.error(f"Failed to send request to {endpoint_url}: {str(e)}")
-#         raise e
-
-# @router.get("/models/{model_name}", response_model=Dict[str, Any])
-# async def get_model(
-#     model_name: str, db: Session = Depends(get_db), _: Any = Depends(verify_api_key)
-# ):
-#     """获取指定模型的详细信息"""
-#     model = crud_model.get_model_by_name(db, model_name)
-#     if not model:
-#         raise HTTPException(status_code=404, detail="Model not found")
-
-#     # 获取支持该模型的所有端点，按性能排序
-#     endpoint_urls = get_endpoints_for_model_name(db, model_name)
-#     if not endpoint_urls:
-#         raise HTTPException(
-#             status_code=404,
-#             detail=f"No available endpoints found for model {model_name}",
-#         )
-
-#     logger.info(f"{len(endpoint_urls)} endpoints found for model {model_name}")
-
-#     exp = None
-#     try:
-#         for endpoint_url in endpoint_urls:
-#             try:
-#                 # 向端点发送请求以获取模型信息
-#                 return await send_model_info_request_to_ollama(endpoint_url, model_name)
-#             except Exception as e:
-#                 logger.warning(
-#                     f"Failed to get model info from {endpoint_url}: {str(e)}"
-#                 )
-#                 continue
-#         # 如果所有端点都失败，抛出异常
-#         raise (
-#             exp
-#             if exp
-#             else HTTPException(
-#                 status_code=500,
-#                 detail="Failed to get model info from all endpoints",
-#             )
-#         )
-#     except JsonHTTPException:
-#         raise
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         logger.error(f"Failed to get model info: {str(e)}")
-#         raise HTTPException(
-#             status_code=500,
-#             detail="Failed to get model info from all endpoints",
-#         )
-
-
-# async def try_send_request(
-#     endpoint_url: str, request: Dict[str, Any], stream: bool = False
-# ):
-#     """尝试向端点发送请求，如果失败则抛出异常"""
-#     try:
-#         if stream:
-#             # 直接返回异步生成器，而不是包装它的函数
-#             return send_chat_completions_request_to_ollama(
-#                 endpoint_url, request, stream=True
-#             )
-#         else:
-#             chunks = []
-#             async for chunk in send_chat_completions_request_to_ollama(
-#                 endpoint_url, request
-#             ):
-#                 chunks.append(chunk)
-#             return "".join(chunks)
-#     except Exception as e:
-#         logger.error(f"Failed to send request to {endpoint_url}: {str(e)}")
-#         raise e
-
-
-# 聊天补全API
 @router.post("/{full_path:path}", response_model=Dict[str, Any])
 @router.get("/{full_path:path}", response_model=Dict[str, Any])
 async def chat_completions(
@@ -203,7 +108,7 @@ async def chat_completions(
         if stream:
 
             async def generate_stream():
-                async for chunk in await send_request_to_best_endpoint(
+                async for chunk in send_request_to_best_endpoint(
                     db,
                     model_name,
                     path=full_path,
@@ -220,7 +125,8 @@ async def chat_completions(
             return StreamingResponse(generate_stream(), media_type="text/event-stream")
         else:
             # 处理非流式响应
-            response = await send_request_to_best_endpoint(
+            chunks = []
+            async for chunk in send_request_to_best_endpoint(
                 db,
                 model_name,
                 path=full_path,
@@ -228,8 +134,11 @@ async def chat_completions(
                 headers=headers,
                 params=params,
                 json=request,
-            )
-            return response
+            ):
+                logger.debug(f"Chunk received: {chunk}")
+                chunks.append(chunk)
+            return chunks[0] if len(chunks) == 1 else chunks
+
     except HTTPException:
         raise
     except JsonHTTPException:

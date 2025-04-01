@@ -16,6 +16,9 @@ logger = get_logger(__name__)
 
 
 class JsonHTTPException(Exception):
+    json_response: Dict[str, Any]
+    status_code: int
+
     def __init__(self, status_code: int, response: Dict[str, Any] | str):
         """
         自定义异常类，用于处理JSON响应
@@ -172,11 +175,12 @@ async def send_request_to_best_endpoint(
         )
 
     last_exp = None
-    for endpoint in endpoints:
+    for idx, endpoint in enumerate(endpoints):
         url = f"{endpoint}/{path}"
+        logger.info(f"Trying {idx + 1} of {len(endpoints)} endpoints")
         try:
             if stream:
-                return send_request_to_ollama(
+                async for chunk in send_request_to_ollama(
                     url,
                     method,
                     headers=headers,
@@ -185,7 +189,9 @@ async def send_request_to_best_endpoint(
                     data=data,
                     files=files,
                     stream=stream,
-                )
+                ):
+                    yield chunk
+                return
             else:
                 chunks = []
                 async for chunk in send_request_to_ollama(
@@ -200,15 +206,17 @@ async def send_request_to_best_endpoint(
                 ):
                     chunks.append(chunk)
                 if len(chunks) == 1:
-                    return chunks[0]
+                    yield chunks[0]
                 else:
                     try:
-                        return json_lib.loads("".join(chunks))
+                        yield json_lib.loads("".join(chunks))
                     except json_lib.JSONDecodeError:
                         # 如果解析失败，返回原始字符串
-                        return "".join(chunks)
+                        yield "".join(chunks)
+                return
         except Exception as e:
             last_exp = e
             continue
     if last_exp:
+        logger.warning(f"All endpoints failed for model {model_name}: {last_exp}")
         raise last_exp
