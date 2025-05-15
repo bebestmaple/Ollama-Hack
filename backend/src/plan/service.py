@@ -1,6 +1,6 @@
-from typing import List
-
 from fastapi import Depends, HTTPException, status
+from fastapi_pagination import Page, Params, set_page
+from fastapi_pagination.ext.sqlmodel import apaginate
 from sqlalchemy import true
 from sqlmodel import and_, select, update
 
@@ -81,15 +81,14 @@ async def get_plan_by_id(session: DBSessionDep, plan_id: int) -> PlanDB:
 
 async def get_plans(
     session: DBSessionDep,
-    current_user: UserDB = Depends(get_current_admin_user),
-    skip: int = 0,
-    limit: int = 100,
-) -> List[PlanDB]:
+    params: Params = Depends(),
+) -> Page[PlanDB]:
     """
     Get all plans (admin only)
     """
-    result = await session.execute(select(PlanDB).offset(skip).limit(limit))
-    return list(result.scalars().all())
+    set_page(Page[PlanDB])
+    query = select(PlanDB)
+    return await apaginate(session, query, params)
 
 
 async def get_default_plan(session: DBSessionDep) -> PlanDB:

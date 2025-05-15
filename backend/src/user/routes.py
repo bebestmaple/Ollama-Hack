@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from fastapi_pagination import Page
 
 from .models import UserDB
 from .schemas import Token, UserInfo
@@ -8,6 +9,7 @@ from .service import (
     get_current_admin_user,
     get_current_user,
     get_user_by_id,
+    get_users,
     init_user,
     login_user,
     update_user,
@@ -73,6 +75,19 @@ async def _create_user(
     user: UserDB = Depends(create_user),
 ) -> UserInfo:
     return UserInfo(**user.model_dump())
+
+
+@user_router.get(
+    "/",
+    response_model=Page[UserInfo],
+    description="Get all users",
+    response_description="The list of users",
+    dependencies=[Depends(get_current_admin_user)],
+)
+async def _get_users(
+    users: Page[UserInfo] = Depends(get_users),
+) -> Page[UserInfo]:
+    return users
 
 
 @user_router.get(

@@ -30,6 +30,8 @@ class ApiKeyInfo(BaseModel):
     name: str
     created_at: datetime.datetime
     last_used_at: Optional[datetime.datetime] = None
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
 
     class Config:
         from_attributes = True

@@ -1,8 +1,10 @@
 import datetime
 import uuid
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 
 from fastapi import Depends, HTTPException, Request, status
+from fastapi_pagination import Page, Params, set_page
+from fastapi_pagination.ext.sqlmodel import apaginate
 from sqlalchemy import false, func
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
@@ -16,7 +18,7 @@ from src.user.models import UserDB
 from src.user.service import get_current_user, get_user_by_id
 
 from .models import ApiKeyDB, ApiKeyUsageLogDB
-from .schemas import ApiKeyCreate, ApiKeyUsageStats
+from .schemas import ApiKeyCreate, ApiKeyInfo, ApiKeyUsageStats
 
 logger = get_logger(__name__)
 
@@ -50,17 +52,35 @@ async def create_api_key(
 async def get_api_keys_for_user(
     session: DBSessionDep,
     user: UserDB = Depends(get_current_user),
-    skip: int = 0,
-    limit: int = 100,
-) -> List[ApiKeyDB]:
+    params: Params = Depends(),
+) -> Page[ApiKeyInfo]:
     """Get all API keys for the current user"""
-    result = await session.execute(
+    # For admin users, return all API keys
+    set_page(Page[ApiKeyInfo])
+
+    query = (
         select(ApiKeyDB)
-        .where(ApiKeyDB.user_id == user.id, ApiKeyDB.revoked == false())
-        .offset(skip)
-        .limit(limit)
+        .options(selectinload(ApiKeyDB.user))  # type: ignore
+        .where(ApiKeyDB.revoked == false())
     )
-    return list(result.scalars().all())
+
+    if not user.is_admin:
+        query = query.where(ApiKeyDB.user_id == user.id)
+
+    api_key_db_page: Page[ApiKeyDB] = await apaginate(session, query, params)
+    return Page(
+        items=[
+            ApiKeyInfo(
+                **api_key.model_dump(),
+                user_id=api_key.user_id,
+                user_name=api_key.user.username,
+            )
+            for api_key in api_key_db_page.items
+        ],
+        page=api_key_db_page.page,
+        size=api_key_db_page.size,
+        total=api_key_db_page.total,
+    )
 
 
 async def get_api_key_by_id(
@@ -69,11 +89,17 @@ async def get_api_key_by_id(
     user: UserDB = Depends(get_current_user),
 ) -> ApiKeyDB:
     """Get an API key by ID"""
-    result = await session.execute(
+    # For admin users, allow access to any API key
+    query = (
         select(ApiKeyDB)
-        .where(ApiKeyDB.id == api_key_id, ApiKeyDB.user_id == user.id)
-        .options(selectinload(ApiKeyDB.user).selectinload(UserDB.plan))  # type: ignore
+        .options(selectinload(ApiKeyDB.user))  # type: ignore
+        .where(ApiKeyDB.id == api_key_id)
     )
+
+    if not user.is_admin:
+        query = query.where(ApiKeyDB.user_id == user.id)
+
+    result = await session.execute(query)
     api_key = result.scalars().first()
 
     if not api_key:
@@ -249,7 +275,7 @@ async def get_api_key_usage_stats(
     user: UserDB = Depends(get_current_user),
 ) -> ApiKeyUsageStats:
     """Get usage statistics for an API key"""
-    # Verify ownership of the API key
+    # Get the API key (this function now handles admin permissions)
     api_key = await get_api_key_by_id(session, api_key_id, user)
 
     _now = now()

@@ -280,13 +280,13 @@ async def process_models_test_results(
 
     mission_model_ids = list(existing_link_map.keys())
     for model_performance in results.model_performances:
+        # 创建或获取模型
+        model = await create_ai_model_if_not_exists(session, model_performance.ai_model)
+
+        if model.id is None:
+            continue
+
         try:
-            # 创建或获取模型
-            model = await create_ai_model_if_not_exists(session, model_performance.ai_model)
-
-            if model.id is None:
-                continue
-
             performance = model_performance.performance
             if performance:
                 performance.ai_model_id = model.id

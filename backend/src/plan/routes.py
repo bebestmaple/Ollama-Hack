@@ -1,6 +1,5 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, status
+from fastapi_pagination import Page
 
 from src.user.service import get_current_admin_user
 
@@ -26,13 +25,13 @@ async def _create_plan(
 
 @plan_router.get(
     "/",
-    response_model=List[PlanResponse],
+    response_model=Page[PlanResponse],
     description="List all plans (admin only)",
     dependencies=[Depends(get_current_admin_user)],
 )
 async def _get_plans(
-    plans: List[PlanResponse] = Depends(get_plans),
-) -> List[PlanResponse]:
+    plans: Page[PlanResponse] = Depends(get_plans),
+) -> Page[PlanResponse]:
     """List all plans"""
     return plans
 

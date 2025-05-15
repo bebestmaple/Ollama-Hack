@@ -3,6 +3,8 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi_pagination import Page, Params, set_page
+from fastapi_pagination.ext.sqlmodel import apaginate
 from sqlalchemy import func
 from sqlmodel import select
 
@@ -11,12 +13,26 @@ from src.core.dependencies import DBSessionDep
 from src.logging import get_logger
 
 from .models import UserDB
-from .schemas import Token, UserAuth, UserUpdate
+from .schemas import Token, UserAuth, UserInfo, UserUpdate
 from .utils import create_access_token, hash_password, verify_password
 
 logger = get_logger(__name__)
 config = get_config()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v2/user/login")
+
+
+async def get_users(session: DBSessionDep, params: Params = Depends()) -> Page[UserInfo]:
+    """
+    Get all users.
+    """
+    set_page(Page[UserInfo])
+    result: Page[UserDB] = await apaginate(session, select(UserDB), params)
+    return Page(
+        items=[UserInfo(**user.model_dump()) for user in result.items],
+        page=result.page,
+        size=result.size,
+        total=result.total,
+    )
 
 
 async def get_user_by_id(session: DBSessionDep, user_id: int) -> UserDB:
