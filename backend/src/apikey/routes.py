@@ -1,6 +1,5 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, status
+from fastapi_pagination import Page
 
 from .schemas import (
     ApiKeyInfo,
@@ -33,12 +32,12 @@ async def _create_api_key(
 
 @apikey_router.get(
     "/",
-    response_model=List[ApiKeyInfo],
+    response_model=Page[ApiKeyInfo],
     description="List all API keys for the current user",
 )
 async def _get_api_keys(
-    api_keys: List[ApiKeyInfo] = Depends(get_api_keys_for_user),
-) -> List[ApiKeyInfo]:
+    api_keys: Page[ApiKeyInfo] = Depends(get_api_keys_for_user),
+) -> Page[ApiKeyInfo]:
     """List all API keys for the current user"""
     return api_keys
 

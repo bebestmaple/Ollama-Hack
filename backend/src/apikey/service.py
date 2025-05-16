@@ -56,8 +56,6 @@ async def get_api_keys_for_user(
 ) -> Page[ApiKeyInfo]:
     """Get all API keys for the current user"""
     # For admin users, return all API keys
-    set_page(Page[ApiKeyInfo])
-
     query = (
         select(ApiKeyDB)
         .options(selectinload(ApiKeyDB.user))  # type: ignore
@@ -67,15 +65,17 @@ async def get_api_keys_for_user(
     if not user.is_admin:
         query = query.where(ApiKeyDB.user_id == user.id)
 
+    set_page(Page[ApiKeyDB])
     api_key_db_page: Page[ApiKeyDB] = await apaginate(session, query, params)
+
+    set_page(Page[ApiKeyInfo])
     return Page(
         items=[
             ApiKeyInfo(
-                **api_key.model_dump(),
-                user_id=api_key.user_id,
-                user_name=api_key.user.username,
+                user_name=item.user.username,
+                **item.model_dump(),
             )
-            for api_key in api_key_db_page.items
+            for item in api_key_db_page.items
         ],
         page=api_key_db_page.page,
         size=api_key_db_page.size,

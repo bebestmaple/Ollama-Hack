@@ -32,6 +32,7 @@ class EndpointAIModelDB(SQLModel, table=True):
             "primaryjoin": "and_(EndpointAIModelDB.endpoint_id == foreign(AIModelPerformanceDB.endpoint_id), "
             "EndpointAIModelDB.ai_model_id == foreign(AIModelPerformanceDB.ai_model_id))",
             "foreign_keys": "[AIModelPerformanceDB.endpoint_id, AIModelPerformanceDB.ai_model_id]",
+            "cascade": "all, delete-orphan",
         },
     )
 
@@ -47,6 +48,7 @@ class AIModelDB(SQLModel, table=True):
 
     endpoint_links: list["EndpointAIModelDB"] = Relationship(
         back_populates="ai_model",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
     endpoints: list["EndpointDB"] = Relationship(

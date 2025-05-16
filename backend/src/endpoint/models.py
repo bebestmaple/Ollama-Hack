@@ -27,11 +27,15 @@ class EndpointDB(SQLModel, table=True):
     )
     performances: list["EndpointPerformanceDB"] = Relationship(
         back_populates="endpoint",
-        sa_relationship_kwargs={"order_by": "EndpointPerformanceDB.created_at.desc()"},
+        sa_relationship_kwargs={
+            "order_by": "EndpointPerformanceDB.created_at.desc()",
+            "cascade": "all, delete-orphan",
+        },
     )
 
     ai_model_links: list["EndpointAIModelDB"] = Relationship(
         back_populates="endpoint",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
 

@@ -72,10 +72,10 @@ async def batch_create_or_update_endpoints(
         else:
             # Create a new endpoint
             endpoint = EndpointDB(**endpoint_create.model_dump())
-            session.add(endpoint)
 
         result_endpoints.append(endpoint)
 
+    session.add_all(result_endpoints)
     await session.commit()
 
     # Refresh all endpoints to get their IDs
@@ -201,8 +201,14 @@ async def delete_endpoint(
     """
     endpoint = await get_endpoint_by_id(session, endpoint_id)
 
+    # 确保加载关联数据以激活级联删除
+    await session.refresh(endpoint, ["ai_model_links", "performances"])
+
+    logger.info(f"Deleting endpoint {endpoint.id} ({endpoint.name}) with all its relations")
+
     await session.delete(endpoint)
     await session.commit()
+    logger.info(f"Endpoint {endpoint_id} deleted successfully")
 
 
 async def get_ai_model_by_name_and_tag(
