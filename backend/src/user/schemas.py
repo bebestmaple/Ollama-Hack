@@ -1,6 +1,20 @@
+from enum import StrEnum
 from typing import Optional
 
 from pydantic import BaseModel
+
+from src.schema import FilterParams
+
+
+class UserSortField(StrEnum):
+    ID = "id"
+    USERNAME = "username"
+    IS_ADMIN = "is_admin"
+    PLAN_ID = "plan_id"
+
+
+class UserFilterParams(FilterParams[UserSortField]):
+    pass
 
 
 class UserAuth(BaseModel):
@@ -13,6 +27,7 @@ class UserInfo(BaseModel):
     username: str
     is_admin: bool
     plan_id: Optional[int] = None
+    plan_name: Optional[str] = None
 
 
 class UserUpdate(BaseModel):

@@ -1,10 +1,24 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import Optional
 
 from fastapi_pagination import Page, Params
 from pydantic import BaseModel
 
+from src.schema import FilterParams
+
 from .models import AIModelStatusEnum
+
+
+class AIModelSortField(StrEnum):
+    ID = "id"
+    NAME = "name"
+    TAG = "tag"
+    CREATED_AT = "created_at"
+
+
+class AIModelFilterParams(FilterParams[AIModelSortField]):
+    pass
 
 
 class AIModelWithEndpointRequest(Params):

@@ -1,16 +1,17 @@
 from fastapi import Depends, HTTPException, status
-from fastapi_pagination import Page, Params, set_page
+from fastapi_pagination import Page, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import true
-from sqlmodel import and_, select, update
+from sqlalchemy import or_, true
+from sqlmodel import and_, col, select, update
 
 from src.core.dependencies import DBSessionDep
 from src.logging import get_logger
+from src.schema import SortOrder
 from src.user.models import UserDB
 from src.user.service import get_current_admin_user, get_current_user
 
 from .models import PlanDB
-from .schemas import PlanCreate, PlanUpdate
+from .schemas import PlanCreate, PlanFilterParams, PlanUpdate
 
 logger = get_logger(__name__)
 
@@ -81,13 +82,28 @@ async def get_plan_by_id(session: DBSessionDep, plan_id: int) -> PlanDB:
 
 async def get_plans(
     session: DBSessionDep,
-    params: Params = Depends(),
+    params: PlanFilterParams = Depends(),
 ) -> Page[PlanDB]:
     """
-    Get all plans (admin only)
+    Get all plans with support for filtering, searching and sorting (admin only)
     """
     set_page(Page[PlanDB])
     query = select(PlanDB)
+
+    # 添加搜索条件
+    if params.search:
+        search_term = f"%{params.search}%"
+        query = query.where(
+            or_(col(PlanDB.name).ilike(search_term), col(PlanDB.description).ilike(search_term))
+        )
+
+    # 添加排序
+    if params.order_by:
+        order_column = getattr(PlanDB, params.order_by.value)
+        if params.order == SortOrder.DESC:
+            order_column = order_column.desc()
+        query = query.order_by(order_column)
+
     return await apaginate(session, query, params)
 
 

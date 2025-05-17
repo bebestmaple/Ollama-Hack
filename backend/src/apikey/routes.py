@@ -33,7 +33,7 @@ async def _create_api_key(
 @apikey_router.get(
     "/",
     response_model=Page[ApiKeyInfo],
-    description="List all API keys for the current user",
+    description="List all API keys for the current user with support for filtering, searching and sorting",
 )
 async def _get_api_keys(
     api_keys: Page[ApiKeyInfo] = Depends(get_api_keys_for_user),

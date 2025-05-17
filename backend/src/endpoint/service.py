@@ -1,7 +1,7 @@
 from fastapi import BackgroundTasks, Depends, HTTPException, status
 from fastapi_pagination import Page, Params, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
@@ -15,12 +15,14 @@ from src.core.dependencies import DBSessionDep
 from src.database import sessionmanager
 from src.logging import get_logger
 from src.ollama.performance_test import EndpointTestResult, test_endpoint
+from src.schema import SortOrder
 
 from .models import EndpointDB
 from .schemas import (
     EndpointAIModelInfo,
     EndpointBatchCreate,
     EndpointCreate,
+    EndpointFilterParams,
     EndpointPerformanceInfo,
     EndpointUpdate,
     EndpointWithAIModelCount,
@@ -92,30 +94,6 @@ async def batch_create_or_update_endpoints(
     return result_endpoints
 
 
-async def get_models_by_endpoint_id(
-    session: DBSessionDep,
-    endpoint_id: int,
-    params: Params = Depends(),
-) -> Page[AIModelDB]:
-    """
-    Get all AI models associated with an endpoint.
-    """
-    set_page(Page[AIModelDB])
-
-    # Query AI Models through the association table
-    query = (
-        select(AIModelDB)
-        .options(selectinload(AIModelDB.performances))  # type: ignore
-        .join(EndpointAIModelDB)
-        .where(
-            (EndpointAIModelDB.ai_model_id == AIModelDB.id)
-            & (EndpointAIModelDB.endpoint_id == endpoint_id)
-        )
-    )
-
-    return await apaginate(session, query, params)
-
-
 async def get_endpoint_by_url(session: DBSessionDep, url: str) -> EndpointDB:
     """
     Get an endpoint by URL.
@@ -129,13 +107,34 @@ async def get_endpoint_by_url(session: DBSessionDep, url: str) -> EndpointDB:
 
 async def get_endpoints(
     session: DBSessionDep,
-    params: Params = Depends(),
+    params: EndpointFilterParams = Depends(),
 ) -> Page[EndpointDB]:
     """
-    Get all endpoints. If user is admin, get all endpoints, otherwise get only user's endpoints.
+    Get all endpoints with filtering, searching and sorting.
+
+    params:
+        - search: Optional search string for name or URL
+        - order_by: Field to sort by
+        - order: Sort order (asc or desc)
     """
     set_page(Page[EndpointDB])
     query = select(EndpointDB).options(selectinload(EndpointDB.performances))  # type: ignore
+
+    # 添加搜索条件
+    if params.search:
+        search_term = f"%{params.search}%"
+        query = query.where(
+            or_(col(EndpointDB.name).ilike(search_term), col(EndpointDB.url).ilike(search_term))
+        )
+
+    # 添加排序
+    if params.order_by:
+        # 处理基本字段排序
+        order_column = getattr(EndpointDB, params.order_by.value)
+        if params.order == SortOrder.DESC:
+            order_column = order_column.desc()
+        query = query.order_by(order_column)
+
     return await apaginate(session, query, params)
 
 
@@ -256,6 +255,9 @@ async def process_endpoint_test_result(
     Process the endpoint test result.
     """
     if results.endpoint_performance:
+        endpoint = await get_endpoint_by_id(session, endpoint_id)
+        endpoint.status = results.endpoint_performance.status
+        session.add(endpoint)
         results.endpoint_performance.endpoint_id = endpoint_id
         session.add(results.endpoint_performance)
         await session.commit()
@@ -471,22 +473,27 @@ async def get_endpoint_with_ai_models(
         id=endpoint.id,
         url=endpoint.url,
         name=endpoint.name,
+        created_at=endpoint.created_at,
+        status=endpoint.status,
         recent_performances=endpoint_performances,
         ai_models=Page(
             items=ai_models,
             total=links.total,
             page=links.page,
             size=links.size,
+            pages=links.pages,
         ),
     )
 
 
 async def get_endpoints_with_ai_model_counts(
-    session: DBSessionDep, endpoints_page: Page[EndpointDB] = Depends(get_endpoints)
+    session: DBSessionDep, filter_params: EndpointFilterParams = Depends()
 ) -> Page[EndpointWithAIModelCount]:
     """
-    Get all endpoints with AI model counts.
+    Get all endpoints with AI model counts, with support for filtering, searching and sorting.
     """
+    endpoints_page = await get_endpoints(session, filter_params)
+
     endpoints_with_counts = []
 
     for endpoint in endpoints_page.items:
@@ -508,7 +515,10 @@ async def get_endpoints_with_ai_model_counts(
         total_ai_model_count = result.scalar_one()
 
         # Count available AI models
-        query = query.where(EndpointAIModelDB.status == AIModelStatusEnum.AVAILABLE)
+        query = select(func.count()).where(
+            EndpointAIModelDB.endpoint_id == endpoint.id,
+            EndpointAIModelDB.status == AIModelStatusEnum.AVAILABLE,
+        )
         result = await session.execute(query)
         avaliable_ai_model_count = result.scalar_one()
 
@@ -518,6 +528,8 @@ async def get_endpoints_with_ai_model_counts(
                 id=endpoint.id,
                 url=endpoint.url,
                 name=endpoint.name,
+                created_at=endpoint.created_at,
+                status=endpoint.status,
                 recent_performances=endpoint_performances,
                 total_ai_model_count=total_ai_model_count,
                 avaliable_ai_model_count=avaliable_ai_model_count,
@@ -530,4 +542,5 @@ async def get_endpoints_with_ai_model_counts(
         total=endpoints_page.total,
         page=endpoints_page.page,
         size=endpoints_page.size,
+        pages=endpoints_page.pages,
     )

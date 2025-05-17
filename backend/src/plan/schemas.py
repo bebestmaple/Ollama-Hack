@@ -1,6 +1,21 @@
+from enum import StrEnum
 from typing import Optional
 
 from pydantic import BaseModel
+
+from src.schema import FilterParams
+
+
+class PlanSortField(StrEnum):
+    ID = "id"
+    NAME = "name"
+    RPM = "rpm"
+    RPD = "rpd"
+    IS_DEFAULT = "is_default"
+
+
+class PlanFilterParams(FilterParams[PlanSortField]):
+    pass
 
 
 class PlanBase(BaseModel):

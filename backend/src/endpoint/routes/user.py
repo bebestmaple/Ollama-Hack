@@ -17,7 +17,7 @@ endpoint_user_router = APIRouter(tags=["endpoint"], dependencies=[Depends(get_cu
 @endpoint_user_router.get(
     "/",
     response_model=Page[EndpointWithAIModelCount],
-    description="Get all endpoints with recent performance tests and AI model counts",
+    description="Get all endpoints with recent performance tests and AI model counts, with support for filtering, searching and sorting",
     response_description="List of endpoints with their recent performance tests and AI model counts",
 )
 async def _get_endpoints(

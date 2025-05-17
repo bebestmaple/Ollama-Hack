@@ -26,7 +26,7 @@ async def _create_plan(
 @plan_router.get(
     "/",
     response_model=Page[PlanResponse],
-    description="List all plans (admin only)",
+    description="List all plans with support for filtering, searching and sorting (admin only)",
     dependencies=[Depends(get_current_admin_user)],
 )
 async def _get_plans(

@@ -3,17 +3,25 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi_pagination import Page, Params, set_page
+from fastapi_pagination import Page, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import func
-from sqlmodel import select
+from sqlalchemy import func, or_
+from sqlalchemy.orm import selectinload
+from sqlmodel import col, select
 
 from src.config import get_config
 from src.core.dependencies import DBSessionDep
 from src.logging import get_logger
+from src.schema import SortOrder
 
 from .models import UserDB
-from .schemas import Token, UserAuth, UserInfo, UserUpdate
+from .schemas import (
+    Token,
+    UserAuth,
+    UserFilterParams,
+    UserInfo,
+    UserUpdate,
+)
 from .utils import create_access_token, hash_password, verify_password
 
 logger = get_logger(__name__)
@@ -21,17 +29,42 @@ config = get_config()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v2/user/login")
 
 
-async def get_users(session: DBSessionDep, params: Params = Depends()) -> Page[UserInfo]:
+async def get_users(session: DBSessionDep, params: UserFilterParams = Depends()) -> Page[UserInfo]:
     """
-    Get all users.
+    Get all users with support for filtering, searching and sorting.
     """
+    from src.plan.service import get_default_plan
+
+    set_page(Page[UserDB])
+    query = select(UserDB).options(selectinload(UserDB.plan))  # type: ignore
+
+    # 添加搜索条件
+    if params.search:
+        search_term = f"%{params.search}%"
+        query = query.where(or_(col(UserDB.username).ilike(search_term)))
+
+    # 添加排序
+    if params.order_by:
+        order_column = getattr(UserDB, params.order_by.value)
+        if params.order == SortOrder.DESC:
+            order_column = order_column.desc()
+        query = query.order_by(order_column)
+
+    result: Page[UserDB] = await apaginate(session, query, params)
+    default_plan_name = (await get_default_plan(session)).name
+
     set_page(Page[UserInfo])
-    result: Page[UserDB] = await apaginate(session, select(UserDB), params)
     return Page(
-        items=[UserInfo(**user.model_dump()) for user in result.items],
+        items=[
+            UserInfo(
+                **user.model_dump(), plan_name=user.plan.name if user.plan else default_plan_name
+            )
+            for user in result.items
+        ],
         page=result.page,
         size=result.size,
         total=result.total,
+        pages=result.pages,
     )
 
 

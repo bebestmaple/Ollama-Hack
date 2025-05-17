@@ -3,22 +3,28 @@ import uuid
 from typing import Optional, Tuple
 
 from fastapi import Depends, HTTPException, Request, status
-from fastapi_pagination import Page, Params, set_page
+from fastapi_pagination import Page, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import false, func
+from sqlalchemy import false, func, or_
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import col, select
 
 from src.core.dependencies import DBSessionDep
 from src.core.utils import now
 from src.logging import get_logger
 from src.plan.models import PlanDB
 from src.plan.service import get_user_plan
+from src.schema import SortOrder
 from src.user.models import UserDB
 from src.user.service import get_current_user, get_user_by_id
 
 from .models import ApiKeyDB, ApiKeyUsageLogDB
-from .schemas import ApiKeyCreate, ApiKeyInfo, ApiKeyUsageStats
+from .schemas import (
+    ApiKeyCreate,
+    ApiKeyFilterParams,
+    ApiKeyInfo,
+    ApiKeyUsageStats,
+)
 
 logger = get_logger(__name__)
 
@@ -52,9 +58,9 @@ async def create_api_key(
 async def get_api_keys_for_user(
     session: DBSessionDep,
     user: UserDB = Depends(get_current_user),
-    params: Params = Depends(),
+    params: ApiKeyFilterParams = Depends(),
 ) -> Page[ApiKeyInfo]:
-    """Get all API keys for the current user"""
+    """Get all API keys for the current user with filtering, searching and sorting"""
     # For admin users, return all API keys
     query = (
         select(ApiKeyDB)
@@ -64,6 +70,18 @@ async def get_api_keys_for_user(
 
     if not user.is_admin:
         query = query.where(ApiKeyDB.user_id == user.id)
+
+    # 添加搜索条件
+    if params.search:
+        search_term = f"%{params.search}%"
+        query = query.where(or_(col(ApiKeyDB.name).ilike(search_term)))
+
+    # 添加排序
+    if params.order_by:
+        order_column = getattr(ApiKeyDB, params.order_by.value)
+        if params.order == SortOrder.DESC:
+            order_column = order_column.desc()
+        query = query.order_by(order_column)
 
     set_page(Page[ApiKeyDB])
     api_key_db_page: Page[ApiKeyDB] = await apaginate(session, query, params)
@@ -80,6 +98,7 @@ async def get_api_keys_for_user(
         page=api_key_db_page.page,
         size=api_key_db_page.size,
         total=api_key_db_page.total,
+        pages=api_key_db_page.pages,
     )
 
 

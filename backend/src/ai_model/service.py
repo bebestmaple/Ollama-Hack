@@ -1,14 +1,16 @@
 from fastapi import Depends, HTTPException, status
 from fastapi_pagination import Page, Params, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import col, select
 
 from src.core.dependencies import DBSessionDep
+from src.schema import SortOrder
 
 from .models import AIModelDB, AIModelStatusEnum, EndpointAIModelDB
 from .schemas import (
+    AIModelFilterParams,
     AIModelInfoWithEndpoint,
     AIModelInfoWithEndpointCount,
     AIModelPerformance,
@@ -19,22 +21,39 @@ from .schemas import (
 
 async def get_ai_models(
     session: DBSessionDep,
-    params: Params = Depends(),
+    params: AIModelFilterParams = Depends(),
 ) -> Page[AIModelDB]:
     """
-    Get all AI models with pagination.
+    Get all AI models with filtering, searching and sorting.
     """
     set_page(Page[AIModelDB])
     query = select(AIModelDB)
+
+    # 添加搜索条件
+    if params.search:
+        search_term = f"%{params.search}%"
+        query = query.where(
+            or_(col(AIModelDB.name).ilike(search_term), col(AIModelDB.tag).ilike(search_term))
+        )
+
+    # 添加基本排序
+    if params.order_by:
+        order_column = getattr(AIModelDB, params.order_by.value)
+        if params.order == SortOrder.DESC:
+            order_column = order_column.desc()
+        query = query.order_by(order_column)
+
     return await apaginate(session, query, params)
 
 
 async def get_endpoint_counts(
-    session: DBSessionDep, ai_models: Page[AIModelDB] = Depends(get_ai_models)
+    session: DBSessionDep, filter_params: AIModelFilterParams = Depends()
 ) -> Page[AIModelInfoWithEndpointCount]:
     """
-    Get all AI models with endpoint count.
+    Get all AI models with endpoint count, with support for filtering, searching and sorting.
     """
+    ai_models = await get_ai_models(session, filter_params)
+
     set_page(Page[AIModelInfoWithEndpointCount])
 
     ai_models_with_endpoint_count = []
@@ -55,11 +74,13 @@ async def get_endpoint_counts(
                 avaliable_endpoint_count=avaliable_endpoint_count,
             )
         )
+
     return Page(
         items=ai_models_with_endpoint_count,
         total=ai_models.total,
         page=ai_models.page,
         size=ai_models.size,
+        pages=ai_models.pages,
     )
 
 
@@ -97,6 +118,7 @@ async def get_ai_model_with_endpoints(
             total=links.total,
             page=links.page,
             size=links.size,
+            pages=links.pages,
         ),
     )
 

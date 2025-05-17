@@ -13,7 +13,7 @@ class ApiKeyDB(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     key: str = Field(index=True, unique=True)
-    name: str = Field(default="")
+    name: str = Field(default="", index=True)
     created_at: datetime.datetime = Field(default_factory=now)
     last_used_at: Optional[datetime.datetime] = Field(default=None)
     revoked: bool = Field(default=False)

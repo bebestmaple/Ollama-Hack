@@ -14,7 +14,7 @@ ai_model_router = APIRouter(
 @ai_model_router.get(
     "/",
     response_model=Page[AIModelInfoWithEndpointCount],
-    description="Get all AI models with recent performance tests",
+    description="Get all AI models with recent performance tests, with support for filtering, searching and sorting",
     response_description="List of AI models with their recent performance tests",
 )
 async def _get_ai_models(

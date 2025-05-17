@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import List, Optional
 
 from fastapi_pagination import Page, Params
@@ -6,8 +7,21 @@ from pydantic import BaseModel, field_validator, model_validator
 from typing_extensions import Self
 
 from src.ai_model.models import AIModelStatusEnum
+from src.schema import FilterParams
 
 from .models import EndpointStatusEnum
+
+
+class EndpointSortField(StrEnum):
+    ID = "id"
+    NAME = "name"
+    URL = "url"
+    CREATED_AT = "created_at"
+    STATUS = "status"
+
+
+class EndpointFilterParams(FilterParams[EndpointSortField]):
+    pass
 
 
 class EndpointCreate(BaseModel):
@@ -39,6 +53,8 @@ class EndpointInfo(BaseModel):
     id: int | None = None
     url: str
     name: str
+    created_at: datetime
+    status: EndpointStatusEnum
 
 
 class EndpointUpdate(BaseModel):

@@ -97,7 +97,6 @@ async def test_ai_model(
                         return False
                     if response.done:
                         break
-                logger.debug(f"Response: {output}, " f"Model: {ai_model.name}:{ai_model.tag}")
         except asyncio.TimeoutError:
             logger.error(f"Timeout error: {timeout} seconds")
 
@@ -105,6 +104,7 @@ async def test_ai_model(
             logger.error(f"No response from model {ai_model.name}:{ai_model.tag}")
             raise Exception("No response from model")
 
+        logger.debug(f"Response: {output}, " f"Model: {ai_model.name}:{ai_model.tag}")
         end_time = asyncio.get_event_loop().time()
         if response.done and response.eval_count:
             output_tokens = response.eval_count

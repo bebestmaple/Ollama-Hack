@@ -80,7 +80,7 @@ async def _create_user(
 @user_router.get(
     "/",
     response_model=Page[UserInfo],
-    description="Get all users",
+    description="Get all users with support for filtering, searching and sorting",
     response_description="The list of users",
     dependencies=[Depends(get_current_admin_user)],
 )

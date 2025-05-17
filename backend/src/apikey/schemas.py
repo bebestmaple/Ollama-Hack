@@ -1,7 +1,22 @@
 import datetime
+from enum import StrEnum
 from typing import List, Optional
 
 from pydantic import BaseModel
+
+from src.schema import FilterParams
+
+
+class ApiKeySortField(StrEnum):
+    ID = "id"
+    NAME = "name"
+    CREATED_AT = "created_at"
+    LAST_USED_AT = "last_used_at"
+    USER_ID = "user_id"
+
+
+class ApiKeyFilterParams(FilterParams[ApiKeySortField]):
+    pass
 
 
 class ApiKeyCreate(BaseModel):

@@ -17,9 +17,10 @@ class EndpointStatusEnum(str, Enum):
 
 class EndpointDB(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    url: str
-    name: str
+    url: str = Field(unique=True, index=True)
+    name: str = Field(index=True)
     created_at: datetime = Field(default_factory=now)
+    status: EndpointStatusEnum = Field(default=EndpointStatusEnum.UNAVAILABLE)
 
     ai_models: list["AIModelDB"] = Relationship(
         back_populates="endpoints",

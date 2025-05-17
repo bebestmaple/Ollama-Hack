@@ -1,6 +1,18 @@
-from pydantic import BaseModel, Field
+from enum import StrEnum
+from typing import Generic, Optional, TypeVar
+
+from fastapi_pagination import Params
 
 
-class Pagination(BaseModel):
-    skip: int = Field(default=0, ge=0)
-    limit: int = Field(default=10, ge=0, le=100)
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+T = TypeVar("T", bound=StrEnum)
+
+
+class FilterParams(Params, Generic[T]):
+    search: Optional[str] = None
+    order_by: Optional[T] = None
+    order: Optional[SortOrder] = SortOrder.DESC
