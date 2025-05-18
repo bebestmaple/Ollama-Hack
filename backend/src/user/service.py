@@ -216,3 +216,13 @@ async def init_user(session: DBSessionDep, request: UserAuth) -> None:
     if await get_user_count(session) > 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already exists")
     await create_user(session, request)
+
+
+async def delete_user(session: DBSessionDep, user_id: int) -> None:
+    """
+    Delete a user.
+    """
+    user = await get_user_by_id(session, user_id)
+    await session.delete(user)
+    await session.commit()
+    return None

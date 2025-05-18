@@ -4,7 +4,7 @@ from fastapi_pagination import Page
 from src.user.service import get_current_user
 
 from .schemas import AIModelInfoWithEndpoint, AIModelInfoWithEndpointCount
-from .service import get_ai_model_with_endpoints, get_endpoint_counts
+from .service import get_ai_model_with_endpoints, get_ai_models_endpoint_counts
 
 ai_model_router = APIRouter(
     prefix="/ai_model", tags=["ai_model"], dependencies=[Depends(get_current_user)]
@@ -18,7 +18,7 @@ ai_model_router = APIRouter(
     response_description="List of AI models with their recent performance tests",
 )
 async def _get_ai_models(
-    ai_model_pages: Page[AIModelInfoWithEndpointCount] = Depends(get_endpoint_counts),
+    ai_model_pages: Page[AIModelInfoWithEndpointCount] = Depends(get_ai_models_endpoint_counts),
 ) -> Page[AIModelInfoWithEndpointCount]:
     return ai_model_pages
 

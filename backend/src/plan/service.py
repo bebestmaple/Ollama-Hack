@@ -143,3 +143,12 @@ async def get_user_plan(session: DBSessionDep, user: UserDB = Depends(get_curren
         user.plan_id = default_plan.id
         await session.commit()
         return default_plan
+
+
+async def delete_plan(session: DBSessionDep, plan_id: int) -> None:
+    """
+    Delete a plan (admin only)
+    """
+    plan = await get_plan_by_id(session, plan_id)
+    await session.delete(plan)
+    await session.commit()

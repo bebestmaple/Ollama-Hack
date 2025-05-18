@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.schema import FilterParams
 
@@ -19,7 +19,7 @@ class UserFilterParams(FilterParams[UserSortField]):
 
 class UserAuth(BaseModel):
     username: str
-    password: str
+    password: str = Field(min_length=8, max_length=128)
 
 
 class UserInfo(BaseModel):

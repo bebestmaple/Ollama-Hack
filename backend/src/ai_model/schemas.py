@@ -18,7 +18,7 @@ class AIModelSortField(StrEnum):
 
 
 class AIModelFilterParams(FilterParams[AIModelSortField]):
-    pass
+    is_available: Optional[bool] = None
 
 
 class AIModelWithEndpointRequest(Params):
@@ -60,5 +60,5 @@ class ModelFromEndpointInfo(BaseModel):
     model_performances: list[AIModelPerformance]
 
 
-class AIModelInfoWithEndpoint(AIModelInfo):
+class AIModelInfoWithEndpoint(AIModelInfoWithEndpointCount):
     endpoints: Page[ModelFromEndpointInfo]

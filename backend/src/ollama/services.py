@@ -166,17 +166,40 @@ async def request_forwarding(
     # Get request data
     logger.info(f"Received request for path: {full_path}")
 
-    request_info = await RequestInfo.from_request(full_path, request_raw)
+    try:
+        request_info = await RequestInfo.from_request(full_path, request_raw)
 
-    # Get model
-    model = await get_ai_model_by_name_and_tag(
-        session, request_info.model_name, request_info.model_tag
-    )
+        # Get model
+        model = await get_ai_model_by_name_and_tag(
+            session, request_info.model_name, request_info.model_tag
+        )
 
-    if not model.id:
-        raise HTTPException(status_code=400, detail="Model not found")
+        if not model.id:
+            raise HTTPException(status_code=404, detail="Model not found")
 
-    # Get best endpoint
-    endpoint = await get_best_endpoint_for_model(session, model.id)
+        # Get best endpoint
+        endpoint = await get_best_endpoint_for_model(session, model.id)
 
-    return await send_request_to_endpoint(request_info, session, api_key, endpoint)
+        return await send_request_to_endpoint(request_info, session, api_key, endpoint)
+    except HTTPException as e:
+        await log_api_key_usage(
+            session,
+            api_key,
+            full_path,
+            request_raw.method,
+            request_info.model_name,
+            e.status_code,
+        )
+        raise e
+    except Exception as e:
+        await log_api_key_usage(
+            session,
+            api_key,
+            full_path,
+            request_raw.method,
+            request_info.model_name,
+            500,
+        )
+        raise HTTPException(
+            status_code=500, detail="Error: Failed to connect to the endpoint"
+        ) from e

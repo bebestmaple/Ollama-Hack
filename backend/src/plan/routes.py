@@ -4,7 +4,7 @@ from fastapi_pagination import Page
 from src.user.service import get_current_admin_user
 
 from .schemas import PlanResponse
-from .service import create_plan, get_plan_by_id, get_plans, get_user_plan, update_plan
+from .service import create_plan, delete_plan, get_plan_by_id, get_plans, get_user_plan, update_plan
 
 plan_router = APIRouter(prefix="/plan", tags=["plan"])
 
@@ -72,3 +72,16 @@ async def _update_plan(
 ) -> PlanResponse:
     """Update a plan"""
     return plan
+
+
+@plan_router.delete(
+    "/{plan_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    description="Delete a plan (admin only)",
+    dependencies=[Depends(get_current_admin_user)],
+)
+async def _delete_plan(
+    plan: None = Depends(delete_plan),
+) -> None:
+    """Delete a plan"""
+    return None

@@ -21,11 +21,14 @@ class EndpointSortField(StrEnum):
 
 
 class EndpointFilterParams(FilterParams[EndpointSortField]):
-    pass
+    status: Optional[EndpointStatusEnum] = None
 
 
 class EndpointCreate(BaseModel):
     url: str
+
+
+class EndpointCreateWithName(EndpointCreate):
     name: str = ""
 
     @field_validator("url")

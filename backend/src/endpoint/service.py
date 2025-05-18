@@ -2,6 +2,7 @@ from fastapi import BackgroundTasks, Depends, HTTPException, status
 from fastapi_pagination import Page, Params, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
 from sqlalchemy import func, or_
+from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
@@ -21,7 +22,7 @@ from .models import EndpointDB
 from .schemas import (
     EndpointAIModelInfo,
     EndpointBatchCreate,
-    EndpointCreate,
+    EndpointCreateWithName,
     EndpointFilterParams,
     EndpointPerformanceInfo,
     EndpointUpdate,
@@ -52,46 +53,42 @@ async def batch_create_or_update_endpoints(
     session: DBSessionDep,
     endpoint_batch: EndpointBatchCreate,
     background_tasks: BackgroundTasks,
-) -> list[EndpointDB]:
+) -> None:
     """
     Create or update multiple endpoints.
     """
+    # 提取所有 URL
+    urls = [ep.url for ep in endpoint_batch.endpoints]
 
-    result_endpoints: list[EndpointDB] = []
+    # 1. 查询已存在的 URL
+    result = await session.execute(
+        select(EndpointDB.url, EndpointDB.id).where(col(EndpointDB.url).in_(urls))
+    )
+    existing = {row[0]: row[1] for row in result.all()}
 
-    for endpoint_create in endpoint_batch.endpoints:
-        # Check if the endpoint already exists
-        try:
-            endpoint = await get_endpoint_by_url(session, endpoint_create.url)
-        except HTTPException:
-            endpoint = None
+    # 2. 过滤出未存在的 URL
+    new_urls = [url for url in urls if url not in existing]
 
-        if endpoint:
-            # Update the endpoint
-            endpoint_data = endpoint_create.model_dump()
-            for key, value in endpoint_data.items():
-                setattr(endpoint, key, value)
-        else:
-            # Create a new endpoint
-            endpoint = EndpointDB(**endpoint_create.model_dump())
+    # 3. 批量插入新 URL
+    new_ids = []
+    if new_urls:
+        # 构建插入数据
+        to_insert = [{"url": url} for url in new_urls]
+        await session.execute(insert(EndpointDB).values(to_insert))
+        await session.commit()
 
-        result_endpoints.append(endpoint)
+        # 查询新插入的记录的 ID
+        result = await session.execute(
+            select(EndpointDB.url, EndpointDB.id).where(col(EndpointDB.url).in_(new_urls))
+        )
+        new_ids = [row[1] for row in result.all()]
 
-    session.add_all(result_endpoints)
-    await session.commit()
+    # 4. 合并所有 ID
+    all_ids = list(existing.values()) + new_ids
 
-    # Refresh all endpoints to get their IDs
-    for endpoint in result_endpoints:
-        await session.refresh(endpoint)
-        if endpoint.id is None:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to generate endpoint ID",
-            )
-        # Add background task to test each endpoint
-        background_tasks.add_task(test_and_update_endpoint_and_models, endpoint.id)
-
-    return result_endpoints
+    # 添加后台任务
+    for eid in all_ids:
+        background_tasks.add_task(test_and_update_endpoint_and_models, eid)
 
 
 async def get_endpoint_by_url(session: DBSessionDep, url: str) -> EndpointDB:
@@ -135,12 +132,15 @@ async def get_endpoints(
             order_column = order_column.desc()
         query = query.order_by(order_column)
 
+    if params.status:
+        query = query.where(EndpointDB.status == params.status)
+
     return await apaginate(session, query, params)
 
 
 async def create_or_update_endpoint(
     session: DBSessionDep,
-    endpoint_create: EndpointCreate,
+    endpoint_create: EndpointCreateWithName,
     background_tasks: BackgroundTasks,
 ) -> EndpointDB:
     """

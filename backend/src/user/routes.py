@@ -6,6 +6,7 @@ from .schemas import Token, UserInfo
 from .service import (
     change_current_user_password,
     create_user,
+    delete_user,
     get_current_admin_user,
     get_current_user,
     get_user_by_id,
@@ -117,3 +118,14 @@ async def _update_user(
     Update a user.
     """
     return UserInfo(**user.model_dump())
+
+
+@user_router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    description="Delete a user",
+    response_description="The deleted user",
+    dependencies=[Depends(get_current_admin_user)],
+)
+async def _delete_user(user: UserDB = Depends(delete_user)) -> None:
+    return None

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, Depends, status
 
 from src.endpoint.models import EndpointDB
 from src.endpoint.schemas import (
@@ -56,14 +56,13 @@ async def _delete_endpoint(
 
 @endpoint_admin_router.post(
     "/batch",
-    response_model=list[EndpointInfo],
-    status_code=status.HTTP_201_CREATED,
+    response_model=None,
+    status_code=status.HTTP_204_NO_CONTENT,
     description="Batch create or update endpoints",
     response_description="The created or updated endpoints",
     dependencies=[Depends(get_current_admin_user)],
 )
 async def _batch_create_endpoints(
-    background_tasks: BackgroundTasks,
-    endpoints: list[EndpointDB] = Depends(batch_create_or_update_endpoints),
-) -> list[EndpointInfo]:
-    return [EndpointInfo(**endpoint.model_dump()) for endpoint in endpoints]
+    endpoints: None = Depends(batch_create_or_update_endpoints),
+) -> None:
+    return None

@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, status
 from fastapi_pagination import Page, Params, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import func, or_
+from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
@@ -27,14 +27,25 @@ async def get_ai_models(
     Get all AI models with filtering, searching and sorting.
     """
     set_page(Page[AIModelDB])
-    query = select(AIModelDB)
+    query = select(AIModelDB).options(selectinload(AIModelDB.endpoint_links))  # type: ignore
 
     # 添加搜索条件
     if params.search:
-        search_term = f"%{params.search}%"
-        query = query.where(
-            or_(col(AIModelDB.name).ilike(search_term), col(AIModelDB.tag).ilike(search_term))
-        )
+        if ":" in params.search:
+            model_name, model_tag = params.search.split(":", 1)
+            query = query.where(
+                and_(
+                    col(AIModelDB.name).ilike(f"%{model_name}%"),
+                    col(AIModelDB.tag).ilike(f"%{model_tag}%"),
+                )
+            )
+        else:
+            query = query.where(
+                or_(
+                    col(AIModelDB.name).ilike(f"%{params.search}%"),
+                    col(AIModelDB.tag).ilike(f"%{params.search}%"),
+                )
+            )
 
     # 添加基本排序
     if params.order_by:
@@ -43,10 +54,30 @@ async def get_ai_models(
             order_column = order_column.desc()
         query = query.order_by(order_column)
 
+    if params.is_available:
+        subquery = select(EndpointAIModelDB).where(
+            (EndpointAIModelDB.ai_model_id == AIModelDB.id)
+            & (EndpointAIModelDB.status == AIModelStatusEnum.AVAILABLE)
+        )
+        query = query.where(exists(subquery))
+
     return await apaginate(session, query, params)
 
 
-async def get_endpoint_counts(
+async def get_endpoint_count(session: DBSessionDep, ai_model_id: int) -> tuple[int, int]:
+    """
+    Get the count of endpoints for an AI model.
+    """
+    query = select(func.count()).where(EndpointAIModelDB.ai_model_id == ai_model_id)
+    result = await session.execute(query)
+    total_endpoint_count = result.scalar_one()
+    query = query.where(EndpointAIModelDB.status == AIModelStatusEnum.AVAILABLE)
+    result = await session.execute(query)
+    avaliable_endpoint_count = result.scalar_one()
+    return total_endpoint_count, avaliable_endpoint_count
+
+
+async def get_ai_models_endpoint_counts(
     session: DBSessionDep, filter_params: AIModelFilterParams = Depends()
 ) -> Page[AIModelInfoWithEndpointCount]:
     """
@@ -58,12 +89,11 @@ async def get_endpoint_counts(
 
     ai_models_with_endpoint_count = []
     for ai_model in ai_models.items:
-        query = select(func.count()).where(EndpointAIModelDB.ai_model_id == ai_model.id)
-        result = await session.execute(query)
-        total_endpoint_count = result.scalar_one()
-        query = query.where(EndpointAIModelDB.status == AIModelStatusEnum.AVAILABLE)
-        result = await session.execute(query)
-        avaliable_endpoint_count = result.scalar_one()
+        if ai_model.id is None:
+            continue
+        total_endpoint_count, avaliable_endpoint_count = await get_endpoint_count(
+            session, ai_model.id
+        )
         ai_models_with_endpoint_count.append(
             AIModelInfoWithEndpointCount(
                 id=ai_model.id,
@@ -108,11 +138,17 @@ async def get_ai_model_with_endpoints(
             ],
         )
         endpoints.append(endpoint)
+    total_endpoint_count, avaliable_endpoint_count = await get_endpoint_count(
+        session, request.ai_model_id
+    )
+
     return AIModelInfoWithEndpoint(
         id=ai_model.id,
         name=ai_model.name,
         tag=ai_model.tag,
         created_at=ai_model.created_at,
+        total_endpoint_count=total_endpoint_count,
+        avaliable_endpoint_count=avaliable_endpoint_count,
         endpoints=Page(
             items=endpoints,
             total=links.total,
@@ -155,5 +191,6 @@ async def get_endpoint_links_by_ai_model_id(
             selectinload(EndpointAIModelDB.endpoint),  # type: ignore
         )
         .where(EndpointAIModelDB.ai_model_id == ai_model_id)
+        .order_by(col(EndpointAIModelDB.token_per_second).desc())
     )
     return await apaginate(session, query, params)
