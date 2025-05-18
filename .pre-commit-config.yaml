@@ -34,3 +34,8 @@ repos:
           # Run the formatter.
           - id: ruff-format
             entry: bash -c 'cd backend && ruff format'
+    - repo: https://github.com/pre-commit/mirrors-eslint
+      rev: v9.22.0
+      hooks:
+          - id: eslint
+            entry: bash -c 'cd frontend && yarn lint'
