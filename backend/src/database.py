@@ -86,7 +86,14 @@ def get_engine_schema():
 
 
 sessionmanager = DatabaseSessionManager(
-    get_engine_schema(), {"echo": (config.app.log_level == LogLevels.DEBUG)}
+    get_engine_schema(),
+    {
+        "echo": (config.app.log_level == LogLevels.DEBUG),
+        "pool_size": 50,
+        "max_overflow": 100,
+        "pool_timeout": 60,
+        "pool_recycle": 1800,
+    },
 )
 
 

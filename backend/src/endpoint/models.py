@@ -15,6 +15,13 @@ class EndpointStatusEnum(str, Enum):
     FAKE = "fake"
 
 
+class TaskStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
 class EndpointDB(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     url: str = Field(unique=True, index=True)
@@ -39,6 +46,14 @@ class EndpointDB(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
+    test_tasks: list["EndpointTestTask"] = Relationship(
+        back_populates="endpoint",
+        sa_relationship_kwargs={
+            "order_by": "EndpointTestTask.created_at.desc()",
+            "cascade": "all, delete-orphan",
+        },
+    )
+
 
 class EndpointPerformanceDB(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -50,3 +65,14 @@ class EndpointPerformanceDB(SQLModel, table=True):
     endpoint_id: Optional[int] = Field(foreign_key="endpoint.id", default=None)
 
     endpoint: EndpointDB = Relationship(back_populates="performances")
+
+
+class EndpointTestTask(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    endpoint_id: int = Field(foreign_key="endpoint.id", index=True)
+    status: TaskStatus = Field(default=TaskStatus.PENDING)
+    scheduled_at: datetime = Field(default_factory=now)
+    last_tried: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(default_factory=now)
+
+    endpoint: EndpointDB = Relationship(back_populates="test_tasks")

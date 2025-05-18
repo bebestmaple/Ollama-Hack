@@ -60,6 +60,11 @@ async def update_setting(
     session.add(setting)
     await session.commit()
     await session.refresh(setting)
+    if key == SystemSettingKey.UPDATE_ENDPOINT_TASK_INTERVAL_HOURS:
+        from src.endpoint.scheduler import get_scheduler
+
+        scheduler = get_scheduler()
+        await scheduler.schedule_periodic_endpoint_updates()
     return setting
 
 

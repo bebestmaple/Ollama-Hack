@@ -1,10 +1,13 @@
-from fastapi import BackgroundTasks, Depends, HTTPException, status
+from datetime import datetime, timedelta
+from typing import Optional
+
+from fastapi import Depends, HTTPException, status
 from fastapi_pagination import Page, Params, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.orm import selectinload
-from sqlmodel import col, select
+from sqlmodel import col, or_, select
 
 from src.ai_model.models import (
     AIModelDB,
@@ -16,18 +19,27 @@ from src.database import DBSessionDep, sessionmanager
 from src.logging import get_logger
 from src.ollama.performance_test import EndpointTestResult, test_endpoint
 from src.schema import SortOrder
+from src.utils import now
 
-from .models import EndpointDB
+from .models import (
+    EndpointDB,
+    EndpointTestTask,
+    TaskStatus,
+)
 from .schemas import (
     EndpointAIModelInfo,
     EndpointBatchCreate,
     EndpointCreateWithName,
     EndpointFilterParams,
+    EndpointInfo,
     EndpointPerformanceInfo,
     EndpointUpdate,
     EndpointWithAIModelCount,
     EndpointWithAIModels,
     EndpointWithAIModelsRequest,
+    TaskFilterParams,
+    TaskInfo,
+    TaskWithEndpoint,
 )
 
 logger = get_logger(__name__)
@@ -51,7 +63,6 @@ async def get_endpoint_by_id(session: DBSessionDep, endpoint_id: int) -> Endpoin
 async def batch_create_or_update_endpoints(
     session: DBSessionDep,
     endpoint_batch: EndpointBatchCreate,
-    background_tasks: BackgroundTasks,
 ) -> None:
     """
     Create or update multiple endpoints.
@@ -85,9 +96,9 @@ async def batch_create_or_update_endpoints(
     # 4. 合并所有 ID
     all_ids = list(existing.values()) + new_ids
 
-    # 添加后台任务
+    # 使用调度器为每个端点创建测试任务
     for eid in all_ids:
-        background_tasks.add_task(test_and_update_endpoint_and_models, eid)
+        await create_test_task(session, eid)
 
 
 async def get_endpoint_by_url(session: DBSessionDep, url: str) -> EndpointDB:
@@ -140,7 +151,6 @@ async def get_endpoints(
 async def create_or_update_endpoint(
     session: DBSessionDep,
     endpoint_create: EndpointCreateWithName,
-    background_tasks: BackgroundTasks,
 ) -> EndpointDB:
     """
     Create a new endpoint.
@@ -166,7 +176,10 @@ async def create_or_update_endpoint(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate endpoint ID",
         )
-    background_tasks.add_task(test_and_update_endpoint_and_models, endpoint.id)
+
+    # 使用调度器创建测试任务
+    await create_test_task(session, endpoint.id)
+
     return endpoint
 
 
@@ -364,8 +377,9 @@ async def test_and_update_endpoint_and_models(
             logger.error(f"Endpoint with ID {endpoint_id} not found")
             return None
 
-        results = await test_endpoint(endpoint)
+    results = await test_endpoint(endpoint)
 
+    async with sessionmanager.session() as session:
         await process_endpoint_test_result(session, endpoint_id, results)
         await process_models_test_results(session, endpoint_id, results)
 
@@ -521,6 +535,17 @@ async def get_endpoints_with_ai_model_counts(
         result = await session.execute(query)
         avaliable_ai_model_count = result.scalar_one()
 
+        query = (
+            select(EndpointTestTask)
+            .where(
+                EndpointTestTask.endpoint_id == endpoint.id,
+            )
+            .order_by(col(EndpointTestTask.scheduled_at).desc())
+        )
+        result = await session.execute(query)
+        task = result.scalars().first()
+        task_status = task.status if task else None
+
         # Create the endpoint with counts
         endpoints_with_counts.append(
             EndpointWithAIModelCount(
@@ -532,6 +557,7 @@ async def get_endpoints_with_ai_model_counts(
                 recent_performances=endpoint_performances,
                 total_ai_model_count=total_ai_model_count,
                 avaliable_ai_model_count=avaliable_ai_model_count,
+                task_status=task_status,
             )
         )
 
@@ -543,3 +569,138 @@ async def get_endpoints_with_ai_model_counts(
         size=endpoints_page.size,
         pages=endpoints_page.pages,
     )
+
+
+async def create_test_task(
+    session: DBSessionDep,
+    endpoint_id: int,
+    scheduled_at: Optional[datetime] = None,
+) -> EndpointTestTask:
+    """
+    Create a new test task for an endpoint.
+    """
+    # Check if the endpoint exists
+    await get_endpoint_by_id(session, endpoint_id)
+
+    # Check if a pending task already exists
+    query = select(EndpointTestTask).where(
+        EndpointTestTask.endpoint_id == endpoint_id,
+        col(EndpointTestTask.status).in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
+    )
+    result = await session.execute(query)
+    existing_task = result.scalars().first()
+    if existing_task:
+        return existing_task
+
+    # Calculate the scheduled time if not provided
+    if scheduled_at is None:
+        scheduled_at = now() + timedelta(seconds=5)
+
+    # Create a new task
+    task = EndpointTestTask(endpoint_id=endpoint_id, scheduled_at=scheduled_at)
+    session.add(task)
+    await session.commit()
+    await session.refresh(task)
+
+    # Schedule the task with the scheduler
+    from .scheduler import get_scheduler
+
+    scheduler = get_scheduler()
+    await scheduler.schedule_endpoint_test(endpoint_id, scheduled_at)
+
+    return task
+
+
+async def get_tasks(session: DBSessionDep, params: TaskFilterParams = Depends()) -> Page[TaskInfo]:
+    """
+    Get all tasks with filtering and sorting.
+    """
+    set_page(Page[EndpointTestTask])
+    query = select(EndpointTestTask)
+
+    # Filter by endpoint_id if provided
+    if params.endpoint_id is not None:
+        query = query.where(EndpointTestTask.endpoint_id == params.endpoint_id)
+
+    # Filter by status if provided
+    if params.status is not None:
+        query = query.where(EndpointTestTask.status == params.status)
+
+    # Add sorting
+    if params.order_by:
+        order_column = getattr(EndpointTestTask, params.order_by.value)
+        if params.order == SortOrder.DESC:
+            order_column = order_column.desc()
+        query = query.order_by(order_column)
+
+    return await apaginate(session, query, params)
+
+
+async def get_task_by_id(
+    session: DBSessionDep,
+    task_id: int,
+) -> EndpointTestTask:
+    """
+    Get a task by ID.
+    """
+    query = select(EndpointTestTask).where(EndpointTestTask.id == task_id)
+    result = await session.execute(query)
+    task = result.scalars().first()
+
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    return task
+
+
+async def get_task_with_endpoint(
+    session: DBSessionDep,
+    task_id: int,
+) -> TaskWithEndpoint:
+    """
+    Get a task by ID with its endpoint.
+    """
+    query = (
+        select(EndpointTestTask)
+        .options(selectinload(EndpointTestTask.endpoint))  # type: ignore
+        .where(col(EndpointTestTask.id) == task_id)
+    )
+    result = await session.execute(query)
+    task = result.scalars().first()
+
+    if task is None or task.id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    if task.endpoint is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found")
+
+    return TaskWithEndpoint(
+        id=task.id,
+        endpoint_id=task.endpoint_id,
+        status=task.status,
+        scheduled_at=task.scheduled_at,
+        last_tried=task.last_tried,
+        created_at=task.created_at,
+        endpoint=EndpointInfo(
+            id=task.endpoint.id,
+            url=task.endpoint.url,
+            name=task.endpoint.name,
+            created_at=task.endpoint.created_at,
+            status=task.endpoint.status,
+        ),
+    )
+
+
+async def manual_trigger_endpoint_test(
+    session: DBSessionDep,
+    endpoint_id: int,
+) -> EndpointTestTask:
+    """
+    Manually trigger a test for an endpoint.
+    """
+    # Check if the endpoint exists
+    await get_endpoint_by_id(session, endpoint_id)
+
+    # Create a task that will run immediately
+    scheduled_at = now() + timedelta(seconds=2)
+    return await create_test_task(session, endpoint_id, scheduled_at)

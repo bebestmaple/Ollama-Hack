@@ -1,21 +1,19 @@
 from datetime import datetime
-from enum import StrEnum
 from typing import List, Optional
 
 from fastapi_pagination import Page, Params
-from pydantic import BaseModel, field_validator, model_validator
-from typing_extensions import Self
+from pydantic import BaseModel, field_validator
 
-from src.ai_model.models import AIModelStatusEnum
-from src.schema import FilterParams
+# Use the same StrEnum base class as in schema.py
+from src.schema import FilterParams, StrEnum
 
-from .models import EndpointStatusEnum
+from .models import EndpointStatusEnum, TaskStatus
 
 
 class EndpointSortField(StrEnum):
     ID = "id"
-    NAME = "name"
     URL = "url"
+    NAME = "name"
     CREATED_AT = "created_at"
     STATUS = "status"
 
@@ -27,25 +25,15 @@ class EndpointFilterParams(FilterParams[EndpointSortField]):
 class EndpointCreate(BaseModel):
     url: str
 
+    @field_validator("url")
+    def url_must_start_with_http(cls, v):
+        if not v.startswith("http"):
+            raise ValueError("URL must start with http:// or https://")
+        return v
+
 
 class EndpointCreateWithName(EndpointCreate):
     name: str = ""
-
-    @field_validator("url")
-    @classmethod
-    def format_url(cls, v: str) -> str:
-        if not v.startswith(("http://", "https://")):
-            v = f"http://{v}"
-
-        v = v.rstrip("/")
-
-        return v
-
-    @model_validator(mode="after")
-    def set_name_if_none(self) -> Self:
-        if not self.name:
-            self.name = self.url
-        return self
 
 
 class EndpointBatchCreate(BaseModel):
@@ -53,26 +41,33 @@ class EndpointBatchCreate(BaseModel):
 
 
 class EndpointInfo(BaseModel):
-    id: int | None = None
+    id: Optional[int] = None
     url: str
     name: str
     created_at: datetime
     status: EndpointStatusEnum
 
+    class Config:
+        from_attributes = True
+
 
 class EndpointUpdate(BaseModel):
-    name: str | None = None
+    name: Optional[str] = None
+    url: Optional[str] = None
 
 
 class EndpointPerformanceInfo(BaseModel):
-    id: int | None = None
+    id: Optional[int] = None
     status: EndpointStatusEnum
     ollama_version: Optional[str] = None
     created_at: datetime
 
+    class Config:
+        from_attributes = True
+
 
 class EndpointWithPerformance(EndpointInfo):
-    recent_performances: List[EndpointPerformanceInfo] = []
+    recent_performances: List[EndpointPerformanceInfo]
 
 
 # New schemas for AI models associated with endpoints
@@ -85,15 +80,65 @@ class EndpointAIModelInfo(BaseModel):
     name: str
     tag: str
     created_at: datetime
-    status: AIModelStatusEnum
+    status: str
     token_per_second: Optional[float] = None
     max_connection_time: Optional[float] = None
+
+    class Config:
+        from_attributes = True
 
 
 class EndpointWithAIModels(EndpointWithPerformance):
     ai_models: Page[EndpointAIModelInfo]
 
+    class Config:
+        from_attributes = True
+
 
 class EndpointWithAIModelCount(EndpointWithPerformance):
     total_ai_model_count: int
     avaliable_ai_model_count: int
+    task_status: Optional[TaskStatus] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Define a TaskSortField for FilterParams
+class TaskSortField(StrEnum):
+    ID = "id"
+    ENDPOINT_ID = "endpoint_id"
+    STATUS = "status"
+    SCHEDULED_AT = "scheduled_at"
+    LAST_TRIED = "last_tried"
+    CREATED_AT = "created_at"
+
+
+# Task related schemas
+class TaskFilterParams(FilterParams[TaskSortField]):
+    endpoint_id: Optional[int] = None
+    status: Optional[TaskStatus] = None
+
+
+class TaskInfo(BaseModel):
+    id: int
+    endpoint_id: int
+    status: TaskStatus
+    scheduled_at: datetime
+    last_tried: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TaskCreate(BaseModel):
+    endpoint_id: int
+    scheduled_at: Optional[datetime] = None
+
+
+class TaskWithEndpoint(TaskInfo):
+    endpoint: EndpointInfo
+
+    class Config:
+        from_attributes = True

@@ -11,20 +11,6 @@ from src.ollama.client import OllamaClient
 
 logger = get_logger(__name__)
 
-"""
-Note:
-
-Ollama 因为冷启动模型需要先将模型加载至内存中，然后再进行生成。加载时间从几秒到一分多钟不等
-如果直接冷启动加检测，可能导致模型还没有加载完就超时了
-所以规划是：
-    - 加长超时时间，给模型加载时间
-    - 若首次检测超时，可以引入重试机制，因为 ollama 会将模型在内存中保存一段时间
-    - 把启动时间记入 tps 的分母有点不公平，应去掉，只计算 token/生成时间
-修改后需要考虑的是：
-    - 冷启动时间也会影响使用体验，但连续使用的话只有首次启动模型时会很慢，所以需要考虑怎么给端点排序
-      如果 tps 很高但是加载需要很久的话，是否应该使用
-"""
-
 
 class ModelPerformance(BaseModel):
     ai_model: AIModelDB
@@ -98,10 +84,12 @@ async def test_ai_model(
                     if response.done:
                         break
         except asyncio.TimeoutError:
-            logger.error(f"Timeout error: {timeout} seconds")
+            logger.debug(f"Timeout error: {timeout} seconds")
+        except Exception as e:
+            logger.debug(f"Error testing model {ai_model.name}:{ai_model.tag}: {e}")
 
         if not response:
-            logger.error(f"No response from model {ai_model.name}:{ai_model.tag}")
+            logger.debug(f"No response from model {ai_model.name}:{ai_model.tag}")
             raise Exception("No response from model")
 
         logger.debug(f"Response: {output}, " f"Model: {ai_model.name}:{ai_model.tag}")
@@ -112,8 +100,8 @@ async def test_ai_model(
             output_tokens = get_token_count(output)
 
         total_time = end_time - start_time
-        # token_per_second = output_tokens / total_time
-        token_per_second = output_tokens / (total_time - connection_time)
+        token_per_second = output_tokens / total_time
+        # token_per_second = output_tokens / (total_time - connection_time)
         performance = AIModelPerformanceDB(
             status=AIModelStatusEnum.AVAILABLE,
             token_per_second=token_per_second,
@@ -124,7 +112,7 @@ async def test_ai_model(
         )
         return performance
     except Exception as e:
-        logger.error(f"Error testing model {ai_model.name}:{ai_model.tag}: {e}")
+        logger.debug(f"Error testing model {ai_model.name}:{ai_model.tag}: {e}")
         return AIModelPerformanceDB(
             status=AIModelStatusEnum.UNAVAILABLE,
         )
@@ -146,7 +134,7 @@ async def test_endpoint(
             )
             logger.info(f"Endpoint version: {version.version}")
         except Exception as e:
-            logger.error(f"Error checking endpoint {endpoint.name}: {e}")
+            logger.debug(f"Error checking endpoint {endpoint.name}: {e}")
             test_reuslt.endpoint_performance = EndpointPerformanceDB(
                 status=EndpointStatusEnum.UNAVAILABLE,
             )
@@ -163,7 +151,7 @@ async def test_endpoint(
                     ),
                 )
                 test_reuslt.model_performances.append(model_performance)
-                logger.error(
+                logger.debug(
                     f"Fake endpoint {endpoint.name}, skipping model {ai_model.name}:{ai_model.tag}"
                 )
                 continue
@@ -178,7 +166,7 @@ async def test_endpoint(
                         f"{endpoint.name},"
                     )
                 else:
-                    logger.error(f"Model {ai_model.name}:{ai_model.tag} is not available, skipping")
+                    logger.debug(f"Model {ai_model.name}:{ai_model.tag} is not available, skipping")
                 model_performance = ModelPerformance(ai_model=ai_model, performance=performance)
 
             if performance is False:
@@ -189,7 +177,7 @@ async def test_endpoint(
                 test_reuslt.endpoint_performance = EndpointPerformanceDB(
                     status=EndpointStatusEnum.FAKE,
                 )
-                logger.error(f"Fake endpoint detected: {endpoint.name}")
+                logger.debug(f"Fake endpoint detected: {endpoint.name}")
                 continue
 
             test_reuslt.model_performances.append(model_performance)
