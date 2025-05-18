@@ -11,7 +11,7 @@ from src.apikey.service import (
     get_api_key_from_request,
     log_api_key_usage,
 )
-from src.core.dependencies import DBSessionDep
+from src.database import DBSessionDep
 from src.endpoint.models import EndpointDB
 from src.logging import get_logger
 
@@ -152,6 +152,9 @@ async def send_request_to_endpoint(
 async def request_forwarding(
     full_path: str, request_raw: Request, session: DBSessionDep
 ) -> StreamingResponse | PlainTextResponse:
+    if full_path.strip("/") == "":
+        return PlainTextResponse("Hello, World!")
+
     from src.endpoint.service import (
         get_ai_model_by_name_and_tag,
         get_best_endpoint_for_model,

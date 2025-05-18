@@ -1,6 +1,7 @@
 import contextlib
-from typing import Any, AsyncIterator
+from typing import Annotated, Any, AsyncIterator
 
+from fastapi import Depends
 from sqlalchemy import TEXT
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -12,8 +13,8 @@ from sqlalchemy.orm import declared_attr
 from sqlmodel import SQLModel as _SQLModel
 
 from .config import DatabaseEngine, LogLevels, get_config
-from .core.utils import snake_case
 from .logging import get_logger
+from .utils import snake_case
 
 config = get_config()
 logger = get_logger(__name__)
@@ -97,3 +98,6 @@ async def create_db_and_tables():
 async def get_db_session():
     async with sessionmanager.session() as session:
         yield session
+
+
+DBSessionDep = Annotated[AsyncSession, Depends(get_db_session)]

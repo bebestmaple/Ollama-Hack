@@ -1,10 +1,14 @@
 import datetime
 import re
+from datetime import timezone
 from functools import partial
 
 
-def now():
-    return datetime.datetime.now(datetime.UTC)
+def now() -> datetime.datetime:
+    """
+    Return current UTC time.
+    """
+    return datetime.datetime.now(timezone.utc)
 
 
 _snake_1 = partial(re.compile(r"(.)((?<![^A-Za-z])[A-Z][a-z]+)").sub, r"\1_\2")

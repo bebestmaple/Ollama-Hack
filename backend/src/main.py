@@ -8,6 +8,7 @@ from .config import Env, get_config
 from .database import create_db_and_tables, sessionmanager
 from .logging import get_logger
 from .routes import router
+from .setting.service import init_settings
 
 bcrypt.__about__ = bcrypt  # type: ignore
 
@@ -24,6 +25,8 @@ docs_url = "/docs" if config.app.env == Env.DEV else None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_db_and_tables()
+    async with sessionmanager.session() as session:
+        await init_settings(session)
     yield
     if sessionmanager._engine is not None:
         await sessionmanager.close()

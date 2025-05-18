@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Column, Field, Relationship
 
-from src.core.utils import now
 from src.database import LONGTEXT, SQLModel
+from src.utils import now
 
 if TYPE_CHECKING:
     from src.endpoint.models import EndpointDB

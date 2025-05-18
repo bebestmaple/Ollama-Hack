@@ -3,9 +3,9 @@ from typing import List, Optional
 
 from sqlmodel import Field, Relationship
 
-from src.core.utils import now
 from src.database import SQLModel
 from src.user.models import UserDB
+from src.utils import now
 
 
 class ApiKeyDB(SQLModel, table=True):

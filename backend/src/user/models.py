@@ -3,8 +3,8 @@ from typing import List, Optional
 
 from sqlmodel import Field, Relationship
 
-from src.core.utils import now
 from src.database import SQLModel
+from src.utils import now
 
 
 class UserDB(SQLModel, table=True):

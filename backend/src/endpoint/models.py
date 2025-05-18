@@ -5,8 +5,8 @@ from typing import Optional
 from sqlmodel import Field, Relationship
 
 from src.ai_model.models import AIModelDB, EndpointAIModelDB
-from src.core.utils import now
 from src.database import SQLModel
+from src.utils import now
 
 
 class EndpointStatusEnum(str, Enum):

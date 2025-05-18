@@ -5,7 +5,7 @@ from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from src.core.dependencies import DBSessionDep
+from src.database import DBSessionDep
 from src.schema import SortOrder
 
 from .models import AIModelDB, AIModelStatusEnum, EndpointAIModelDB
@@ -163,7 +163,7 @@ async def get_ai_model_by_id(session: DBSessionDep, ai_model_id: int) -> AIModel
     """
     Get an AI model by ID.
     """
-    query = select(AIModelDB).where(AIModelDB.id == ai_model_id)  # type: ignore
+    query = select(AIModelDB).where(col(AIModelDB.id) == ai_model_id)
     result = await session.execute(query)
     ai_model = result.scalars().first()
     if ai_model is None:

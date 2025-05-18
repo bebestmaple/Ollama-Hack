@@ -4,7 +4,7 @@ from fastapi_pagination.ext.sqlmodel import apaginate
 from sqlalchemy import or_, true
 from sqlmodel import and_, col, select, update
 
-from src.core.dependencies import DBSessionDep
+from src.database import DBSessionDep
 from src.logging import get_logger
 from src.schema import SortOrder
 from src.user.models import UserDB
@@ -29,7 +29,7 @@ async def create_plan(
     # If this plan is set as default, unset any existing default plan
     if plan.is_default:
         await session.execute(
-            update(PlanDB).where(PlanDB.is_default == true()).values(is_default=False)  # type: ignore
+            update(PlanDB).where(col(PlanDB.is_default) == true()).values(is_default=False)
         )
 
     session.add(plan)

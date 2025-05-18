@@ -12,8 +12,7 @@ from src.ai_model.models import (
     AIModelStatusEnum,
     EndpointAIModelDB,
 )
-from src.core.dependencies import DBSessionDep
-from src.database import sessionmanager
+from src.database import DBSessionDep, sessionmanager
 from src.logging import get_logger
 from src.ollama.performance_test import EndpointTestResult, test_endpoint
 from src.schema import SortOrder

@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
 from src.config import get_config
-from src.core.dependencies import DBSessionDep
+from src.database import DBSessionDep
 from src.logging import get_logger
 from src.schema import SortOrder
 

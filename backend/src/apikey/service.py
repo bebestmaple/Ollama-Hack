@@ -9,14 +9,14 @@ from sqlalchemy import false, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from src.core.dependencies import DBSessionDep
-from src.core.utils import now
+from src.database import DBSessionDep
 from src.logging import get_logger
 from src.plan.models import PlanDB
 from src.plan.service import get_user_plan
 from src.schema import SortOrder
 from src.user.models import UserDB
 from src.user.service import get_current_user, get_user_by_id
+from src.utils import now
 
 from .models import ApiKeyDB, ApiKeyUsageLogDB
 from .schemas import (
