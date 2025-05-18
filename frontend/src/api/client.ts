@@ -158,8 +158,9 @@ export class ApiClient {
     return response.data;
   }
 }
+const baseURL = import.meta.env.VITE_API_BASE_URL;
 
 // 创建默认客户端实例
-export const apiClient = new ApiClient();
+export const apiClient = new ApiClient(baseURL || "http://localhost:8000");
 
 export default apiClient;
