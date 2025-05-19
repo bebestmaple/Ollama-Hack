@@ -137,6 +137,10 @@ class SchedulerService:
             )
             interval_hours = int(setting.value)
 
+        if interval_hours <= 0:
+            logger.warning("Update interval is 0, skipping periodic endpoint updates")
+            return
+
         # Remove existing
         if self.scheduler.get_job("periodic_endpoint_updates"):
             self.scheduler.remove_job("periodic_endpoint_updates")
@@ -184,7 +188,7 @@ class SchedulerService:
                         col(EndpointTestTask.endpoint_id) == endpoint_id,
                         col(EndpointTestTask.status).in_([TaskStatus.DONE, TaskStatus.RUNNING]),
                         col(EndpointTestTask.scheduled_at)
-                        >= scheduled - datetime.timedelta(hours=interval_hours),
+                        >= scheduled - datetime.timedelta(hours=interval_hours // 2),
                     )
                     res = await session.execute(q)
                     if res.scalars().first() is not None:
@@ -290,12 +294,12 @@ class SchedulerService:
         async with semaphore:
             logger.info(f"Running task {task_id} for endpoint {endpoint_id}")
             async with sessionmanager.session() as session:
-                async with session.begin():
-                    task = await session.get(EndpointTestTask, task_id)
-                    if not task or task.status == TaskStatus.DONE:
-                        return
-                    task.status = TaskStatus.RUNNING
-                    task.last_tried = now()
+                task = await session.get(EndpointTestTask, task_id)
+                if not task or task.status == TaskStatus.DONE:
+                    return
+                task.status = TaskStatus.RUNNING
+                task.last_tried = now()
+                await session.commit()
 
             try:
                 await test_and_update_endpoint_and_models(endpoint_id)

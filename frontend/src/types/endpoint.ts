@@ -1,4 +1,8 @@
-import { AIModelStatusEnum, EndpointStatusEnum } from "./common";
+import {
+  AIModelStatusEnum,
+  EndpointStatusEnum,
+  TaskStatusEnum,
+} from "./common";
 
 // 端点信息
 export interface EndpointInfo {
@@ -21,6 +25,7 @@ export interface EndpointWithAIModelCount extends EndpointInfo {
   recent_performances: EndpointPerformanceInfo[];
   total_ai_model_count: number;
   avaliable_ai_model_count: number;
+  task_status?: TaskStatusEnum;
 }
 
 // 端点 AI 模型信息
@@ -60,4 +65,14 @@ export interface EndpointUpdate {
 // 批量创建端点请求
 export interface EndpointBatchCreate {
   endpoints: EndpointCreate[];
+}
+
+// 端点任务信息
+export interface EndpointTaskInfo {
+  id: number;
+  endpoint_id: number;
+  status: TaskStatusEnum;
+  scheduled_at: string;
+  last_tried?: string;
+  created_at: string;
 }

@@ -61,3 +61,11 @@ export enum EndpointStatusEnum {
   UNAVAILABLE = "unavailable",
   FAKE = "fake",
 }
+
+// 任务状态枚举
+export enum TaskStatusEnum {
+  PENDING = "pending",
+  RUNNING = "running",
+  DONE = "done",
+  FAILED = "failed",
+}

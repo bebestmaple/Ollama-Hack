@@ -104,22 +104,6 @@ class EndpointWithAIModelCount(EndpointWithPerformance):
         from_attributes = True
 
 
-# Define a TaskSortField for FilterParams
-class TaskSortField(StrEnum):
-    ID = "id"
-    ENDPOINT_ID = "endpoint_id"
-    STATUS = "status"
-    SCHEDULED_AT = "scheduled_at"
-    LAST_TRIED = "last_tried"
-    CREATED_AT = "created_at"
-
-
-# Task related schemas
-class TaskFilterParams(FilterParams[TaskSortField]):
-    endpoint_id: Optional[int] = None
-    status: Optional[TaskStatus] = None
-
-
 class TaskInfo(BaseModel):
     id: int
     endpoint_id: int

@@ -93,7 +93,7 @@ class OllamaClient:
                     try:
                         yield response_model(**json_lib.loads(item))
                     except Exception as e:
-                        logger.error(f"Error parsing response: {e}")
+                        logger.debug(f"Error parsing response: {e}")
                         logger.debug(f"Response content: {item}")
                         continue
                 else:

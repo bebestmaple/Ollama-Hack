@@ -24,7 +24,6 @@ from src.utils import now
 from .models import (
     EndpointDB,
     EndpointTestTask,
-    TaskStatus,
 )
 from .schemas import (
     EndpointAIModelInfo,
@@ -37,8 +36,6 @@ from .schemas import (
     EndpointWithAIModelCount,
     EndpointWithAIModels,
     EndpointWithAIModelsRequest,
-    TaskFilterParams,
-    TaskInfo,
     TaskWithEndpoint,
 )
 
@@ -575,65 +572,22 @@ async def create_test_task(
     session: DBSessionDep,
     endpoint_id: int,
     scheduled_at: Optional[datetime] = None,
-) -> EndpointTestTask:
+) -> Optional[EndpointTestTask]:
     """
     Create a new test task for an endpoint.
     """
     # Check if the endpoint exists
     await get_endpoint_by_id(session, endpoint_id)
 
-    # Check if a pending task already exists
-    query = select(EndpointTestTask).where(
-        EndpointTestTask.endpoint_id == endpoint_id,
-        col(EndpointTestTask.status).in_([TaskStatus.PENDING, TaskStatus.RUNNING]),
-    )
-    result = await session.execute(query)
-    existing_task = result.scalars().first()
-    if existing_task:
-        return existing_task
-
     # Calculate the scheduled time if not provided
     if scheduled_at is None:
         scheduled_at = now() + timedelta(seconds=5)
-
-    # Create a new task
-    task = EndpointTestTask(endpoint_id=endpoint_id, scheduled_at=scheduled_at)
-    session.add(task)
-    await session.commit()
-    await session.refresh(task)
 
     # Schedule the task with the scheduler
     from .scheduler import get_scheduler
 
     scheduler = get_scheduler()
-    await scheduler.schedule_endpoint_test(endpoint_id, scheduled_at)
-
-    return task
-
-
-async def get_tasks(session: DBSessionDep, params: TaskFilterParams = Depends()) -> Page[TaskInfo]:
-    """
-    Get all tasks with filtering and sorting.
-    """
-    set_page(Page[EndpointTestTask])
-    query = select(EndpointTestTask)
-
-    # Filter by endpoint_id if provided
-    if params.endpoint_id is not None:
-        query = query.where(EndpointTestTask.endpoint_id == params.endpoint_id)
-
-    # Filter by status if provided
-    if params.status is not None:
-        query = query.where(EndpointTestTask.status == params.status)
-
-    # Add sorting
-    if params.order_by:
-        order_column = getattr(EndpointTestTask, params.order_by.value)
-        if params.order == SortOrder.DESC:
-            order_column = order_column.desc()
-        query = query.order_by(order_column)
-
-    return await apaginate(session, query, params)
+    return await scheduler.schedule_endpoint_test(endpoint_id, scheduled_at)
 
 
 async def get_task_by_id(
@@ -644,6 +598,24 @@ async def get_task_by_id(
     Get a task by ID.
     """
     query = select(EndpointTestTask).where(EndpointTestTask.id == task_id)
+    result = await session.execute(query)
+    task = result.scalars().first()
+
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+    return task
+
+
+async def get_latest_task_for_endpoint(
+    session: DBSessionDep,
+    endpoint_id: int,
+) -> EndpointTestTask:
+    """
+    Get the latest task for an endpoint.
+    """
+    query = select(EndpointTestTask).where(EndpointTestTask.endpoint_id == endpoint_id)
+    query = query.order_by(col(EndpointTestTask.scheduled_at).desc())
     result = await session.execute(query)
     task = result.scalars().first()
 
@@ -694,7 +666,7 @@ async def get_task_with_endpoint(
 async def manual_trigger_endpoint_test(
     session: DBSessionDep,
     endpoint_id: int,
-) -> EndpointTestTask:
+) -> Optional[EndpointTestTask]:
     """
     Manually trigger a test for an endpoint.
     """

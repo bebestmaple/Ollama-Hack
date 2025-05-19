@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@heroui/button";
 import { SortDescriptor, Selection } from "@heroui/table";
-import { Tooltip } from "@heroui/react";
+import { Spinner, Tooltip } from "@heroui/react";
 
 import { DataTable } from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
@@ -15,7 +15,8 @@ import {
   EditIcon,
   EyeIcon,
   PlusIcon,
-} from "@/components/icons.tsx";
+  TestIcon,
+} from "@/components/icons";
 
 interface EndpointTableProps {
   endpoints: EndpointWithAIModelCount[] | undefined;
@@ -38,6 +39,7 @@ interface EndpointTableProps {
   onCreateEndpoint: () => void;
   onPageChange: (page: number) => void;
   onSearch: (e: React.FormEvent) => void;
+  onTestEndpoint: (id: number) => void;
   isAdmin: boolean;
   totalPages?: number;
   totalItems?: number;
@@ -64,9 +66,11 @@ const EndpointTable: React.FC<EndpointTableProps> = ({
   onCreateEndpoint,
   onPageChange,
   onSearch,
+  onTestEndpoint,
   isAdmin,
   totalPages,
   totalItems,
+  testingEndpointIds,
 }) => {
   // 获取端点状态
   const getEndpointStatus = (
@@ -119,6 +123,79 @@ const EndpointTable: React.FC<EndpointTableProps> = ({
     }
   };
 
+  const EndpointActionCell = ({
+    endpoint,
+    isTesting,
+    onTestEndpoint,
+    onEditEndpoint,
+    onDeleteEndpoint,
+    onOpenEndpointDetail,
+    isAdmin,
+  }) => {
+    return (
+      <div className="relative flex items-center gap-2">
+        <Tooltip content="查看端点">
+          <Button
+            isIconOnly
+            className="text-default-400 active:opacity-50 text-lg"
+            variant="light"
+            onPress={() => {
+              if (endpoint.id) {
+                onOpenEndpointDetail(endpoint.id);
+              }
+            }}
+          >
+            <EyeIcon />
+          </Button>
+        </Tooltip>
+        {isAdmin && (
+          <>
+            <Tooltip content="测试端点">
+              <Button
+                isIconOnly
+                className="text-default-400 active:opacity-50 text-lg"
+                isLoading={isTesting}
+                spinner={<Spinner color="warning" size="sm" variant="wave" />}
+                variant="light"
+                onPress={() => {
+                  if (endpoint.id) {
+                    onTestEndpoint(endpoint.id);
+                  }
+                }}
+              >
+                <TestIcon />
+              </Button>
+            </Tooltip>
+            <Tooltip content="编辑端点">
+              <Button
+                isIconOnly
+                className="text-default-400 active:opacity-50 text-lg"
+                variant="light"
+                onPress={() => onEditEndpoint(endpoint)}
+              >
+                <EditIcon />
+              </Button>
+            </Tooltip>
+            <Tooltip color="danger" content="删除端点">
+              <Button
+                isIconOnly
+                className="text-default-400 active:opacity-50 text-lg"
+                variant="light"
+                onPress={() => {
+                  if (endpoint.id) {
+                    onDeleteEndpoint(endpoint.id);
+                  }
+                }}
+              >
+                <DeleteIcon />
+              </Button>
+            </Tooltip>
+          </>
+        )}
+      </div>
+    );
+  };
+
   // 渲染单元格内容
   const renderCell = (
     endpoint: EndpointWithAIModelCount,
@@ -154,50 +231,19 @@ const EndpointTable: React.FC<EndpointTableProps> = ({
           : "-";
       case "actions":
         return (
-          <div className="relative flex items-center gap-2">
-            <Tooltip content="查看端点">
-              <Button
-                isIconOnly
-                className="text-default-400 active:opacity-50 text-lg"
-                variant="light"
-                onPress={() => {
-                  if (endpoint.id) {
-                    onOpenEndpointDetail(endpoint.id);
-                  }
-                }}
-              >
-                <EyeIcon />
-              </Button>
-            </Tooltip>
-            {isAdmin && (
-              <>
-                <Tooltip content="编辑端点">
-                  <Button
-                    isIconOnly
-                    className="text-default-400 active:opacity-50 text-lg"
-                    variant="light"
-                    onPress={() => onEditEndpoint(endpoint)}
-                  >
-                    <EditIcon />
-                  </Button>
-                </Tooltip>
-                <Tooltip color="danger" content="删除端点">
-                  <Button
-                    isIconOnly
-                    className="text-default-400 active:opacity-50 text-lg"
-                    variant="light"
-                    onPress={() => {
-                      if (endpoint.id) {
-                        onDeleteEndpoint(endpoint.id);
-                      }
-                    }}
-                  >
-                    <DeleteIcon />
-                  </Button>
-                </Tooltip>
-              </>
-            )}
-          </div>
+          <EndpointActionCell
+            endpoint={endpoint}
+            isAdmin={isAdmin}
+            isTesting={testingEndpointIds.includes(endpoint.id)}
+            onDeleteEndpoint={onDeleteEndpoint}
+            onEditEndpoint={onEditEndpoint}
+            onOpenEndpointDetail={onOpenEndpointDetail}
+            onTestEndpoint={() => {
+              if (endpoint.id) {
+                onTestEndpoint(endpoint.id);
+              }
+            }}
+          />
         );
       default:
         return null;
@@ -206,6 +252,7 @@ const EndpointTable: React.FC<EndpointTableProps> = ({
 
   return (
     <DataTable<EndpointWithAIModelCount>
+      key={testingEndpointIds.join(",")}
       addButtonProps={
         isAdmin
           ? {

@@ -39,3 +39,5 @@ repos:
       hooks:
           - id: eslint
             entry: bash -c 'cd frontend && yarn lint'
+            files: \.[jt]sx?$ # *.js, *.jsx, *.ts and *.tsx
+            types: [file]

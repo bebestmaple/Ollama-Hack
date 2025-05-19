@@ -60,7 +60,13 @@ const StatusTimeline = <T extends PerformanceStatus>({
   // 创建显示的状态数组
   const getStatusList = () => {
     // 复制并限制到最多10个项目
-    const statusItems = [...performanceTests].slice(0, maxStatus);
+    const statusItems = [...performanceTests]
+      .slice(0, maxStatus)
+      .sort((a, b) => {
+        return (
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      });
 
     // 如果不足10个，用空状态填充
     const fillerCount = maxStatus - statusItems.length;

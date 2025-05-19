@@ -32,7 +32,7 @@ async def _get_setting(
     return setting
 
 
-@setting_router.put(
+@setting_router.patch(
     "/{key}",
     response_model=SystemSettings,
     description="Update a setting by its key",

@@ -4,6 +4,7 @@ import {
   EndpointBatchCreate,
   EndpointCreate,
   EndpointInfo,
+  EndpointTaskInfo,
   EndpointUpdate,
   EndpointWithAIModelCount,
   EndpointWithAIModels,
@@ -60,6 +61,18 @@ export const endpointApi = {
   // 批量创建端点
   batchCreateEndpoints: (data: EndpointBatchCreate) => {
     return apiClient.post<EndpointInfo[]>("/api/v2/endpoint/batch", data);
+  },
+
+  // 手动触发端点测试
+  triggerEndpointTest: (endpointId: number) => {
+    return apiClient.post<void>(`/api/v2/endpoint/${endpointId}/test`);
+  },
+
+  // 获取端点测试结果
+  getEndpointTask: (endpointId: number) => {
+    return apiClient.get<EndpointTaskInfo>(
+      `/api/v2/endpoint/${endpointId}/task`,
+    );
   },
 };
 

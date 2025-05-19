@@ -1,5 +1,4 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import { addToast } from "@heroui/toast";
 import { Selection } from "@heroui/table";
@@ -11,7 +10,12 @@ import EndpointEditModal from "@/components/endpoints/EditModal.tsx";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCustomQuery } from "@/hooks";
 import { endpointApi } from "@/api";
-import { EndpointWithAIModelCount, PageResponse, SortOrder } from "@/types";
+import {
+  EndpointWithAIModelCount,
+  PageResponse,
+  SortOrder,
+  TaskStatusEnum,
+} from "@/types";
 import DashboardLayout from "@/layouts/Main";
 import ErrorDisplay from "@/components/ErrorDisplay";
 import { useDialog } from "@/contexts/DialogContext";
@@ -54,6 +58,10 @@ export const EndpointListPage = () => {
   // 处理每页行数变化
   const [pageSize, setPageSize] = useState(10);
 
+  // 测试状态管理
+  const [testingEndpointIds, setTestingEndpointIds] = useState<number[]>([]);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   // 获取端点列表
   const {
     data: endpoints,
@@ -72,6 +80,21 @@ export const EndpointListPage = () => {
       }),
     { staleTime: 30000 },
   );
+
+  useEffect(() => {
+    const running_endpoint_ids = endpoints?.items
+      .filter((endpoint) => endpoint.task_status === TaskStatusEnum.RUNNING)
+      .map((endpoint) => endpoint.id);
+
+    if (running_endpoint_ids && running_endpoint_ids.length > 0) {
+      let new_testing_endpoint_ids = new Set([
+        ...testingEndpointIds,
+        ...running_endpoint_ids,
+      ]);
+
+      setTestingEndpointIds(Array.from(new_testing_endpoint_ids));
+    }
+  }, [endpoints, setTestingEndpointIds]);
 
   // 处理搜索
   const handleSearch = (e: React.FormEvent) => {
@@ -101,6 +124,126 @@ export const EndpointListPage = () => {
       }
     });
   };
+
+  // 处理测试端点
+  const handleTestEndpoint = (id: number) => {
+    confirm(
+      `确定要测试端点 ${id} 吗？`,
+      async () => {
+        try {
+          // 直接调用函数式更新，避免 stale closure
+          setTestingEndpointIds((prev) => {
+            if (prev.includes(id)) {
+              addToast({
+                title: "测试已触发",
+                description: `端点 ${id} 测试已开始，请等待结果`,
+                color: "primary",
+              });
+
+              return prev;
+            }
+            endpointApi.triggerEndpointTest(id);
+            addToast({
+              title: "测试已触发",
+              description: `端点 ${id} 测试已开始，请等待结果`,
+              color: "primary",
+            });
+
+            return [...prev, id];
+          });
+        } catch (err) {
+          addToast({
+            title: "触发测试失败",
+            description: (err as Error).message || "请重试",
+            color: "danger",
+          });
+        }
+      },
+      "确认测试端点",
+    );
+  };
+
+  // 添加轮询逻辑
+  useEffect(() => {
+    // 如果有正在测试的端点，开始轮询
+    if (testingEndpointIds.length > 0 && !pollingIntervalRef.current) {
+      // 创建一个当前ID列表的副本，用于闭包内部使用
+      const currentTestingIds = [...testingEndpointIds];
+
+      pollingIntervalRef.current = setInterval(async () => {
+        // 获取当前最新的测试ID列表
+        let stillTestingIds = [...currentTestingIds];
+
+        // 检查每个正在测试的端点的状态
+        for (const endpointId of currentTestingIds) {
+          try {
+            const task = await endpointApi.getEndpointTask(endpointId);
+
+            const endpoint = endpoints?.items.find(
+              (endpoint) => endpoint.id === endpointId,
+            );
+
+            if (endpoint) {
+              endpoint.task_status = task.status;
+            }
+
+            if (
+              task.status !== TaskStatusEnum.RUNNING &&
+              task.status !== TaskStatusEnum.PENDING
+            ) {
+              if (task.status === TaskStatusEnum.FAILED) {
+                addToast({
+                  title: "测试失败",
+                  description: `端点 ${endpointId} 测试失败，请重试`,
+                  color: "danger",
+                });
+              } else if (task.status === TaskStatusEnum.DONE) {
+                addToast({
+                  title: "测试成功",
+                  description: `端点 ${endpointId} 测试成功`,
+                  color: "success",
+                });
+              }
+              // 如果没有运行中的任务，从测试列表中移除
+              stillTestingIds = stillTestingIds.filter(
+                (id) => Number(id) !== Number(endpointId),
+              );
+              // 刷新端点列表以获取最新状态
+              refetch();
+            }
+          } catch {
+            // 出错时也从列表中移除，避免无限尝试
+            stillTestingIds = stillTestingIds.filter(
+              (id) => Number(id) !== Number(endpointId),
+            );
+          }
+        }
+
+        // 更新正在测试的端点列表 - 使用函数式更新确保使用最新状态
+        setTestingEndpointIds((prev) => {
+          if (JSON.stringify(stillTestingIds) !== JSON.stringify(prev)) {
+            return stillTestingIds;
+          }
+
+          return prev;
+        });
+
+        // 如果没有正在测试的端点，清除轮询
+        if (stillTestingIds.length === 0 && pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+      }, 5000); // 每5秒轮询一次
+    }
+
+    return () => {
+      // 组件卸载时清除轮询
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [testingEndpointIds, refetch]);
 
   // 打开端点详情抽屉
   const openEndpointDetail = (endpointId: number) => {
@@ -137,6 +280,7 @@ export const EndpointListPage = () => {
           setPageSize={setPageSize}
           setSearchTerm={setSearchTerm}
           setVisibleColumns={setVisibleColumns}
+          testingEndpointIds={testingEndpointIds}
           totalItems={endpoints?.total}
           totalPages={endpoints?.pages}
           visibleColumns={visibleColumns}
@@ -149,6 +293,7 @@ export const EndpointListPage = () => {
           onOpenEndpointDetail={openEndpointDetail}
           onPageChange={handlePageChange}
           onSearch={handleSearch}
+          onTestEndpoint={handleTestEndpoint}
         />
       )}
 

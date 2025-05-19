@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, status
-from fastapi_pagination import Page
+from typing import Optional, cast
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from src.endpoint.models import EndpointDB, EndpointTestTask
-from src.endpoint.schemas import EndpointInfo, TaskInfo, TaskWithEndpoint
+from src.endpoint.schemas import EndpointInfo, TaskInfo
 from src.endpoint.service import (
     batch_create_or_update_endpoints,
     create_or_update_endpoint,
     delete_endpoint,
+    get_latest_task_for_endpoint,
     get_task_by_id,
-    get_tasks,
     manual_trigger_endpoint_test,
     update_endpoint,
 )
@@ -78,30 +79,46 @@ async def _batch_create_endpoints(
     response_description="The created test task",
 )
 async def _trigger_endpoint_test(
-    task: EndpointTestTask = Depends(manual_trigger_endpoint_test),
+    task: Optional[EndpointTestTask] = Depends(manual_trigger_endpoint_test),
 ) -> TaskInfo:
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not created")
     return TaskInfo(**task.model_dump())
 
 
 @endpoint_admin_router.get(
-    "/tasks",
-    response_model=Page[TaskInfo],
-    description="Get all tasks with filtering and sorting",
-    response_description="List of tasks",
+    "/{endpoint_id}/task",
+    response_model=TaskInfo,
+    description="Get the latest task for an endpoint",
+    response_description="The latest task for an endpoint",
 )
-async def _get_tasks(
-    tasks: Page[TaskInfo] = Depends(get_tasks),
-) -> Page[TaskInfo]:
-    return tasks
+async def _get_latest_task(
+    task: EndpointTestTask = Depends(get_latest_task_for_endpoint),
+) -> TaskInfo:
+    return TaskInfo(
+        id=cast(int, task.id),
+        endpoint_id=task.endpoint_id,
+        status=task.status,
+        scheduled_at=task.scheduled_at,
+        last_tried=task.last_tried,
+        created_at=task.created_at,
+    )
 
 
 @endpoint_admin_router.get(
     "/tasks/{task_id}",
-    response_model=TaskWithEndpoint,
+    response_model=TaskInfo,
     description="Get a task by ID with its endpoint",
     response_description="The task with its endpoint",
 )
 async def _get_task_by_id(
-    task: TaskWithEndpoint = Depends(get_task_by_id),
-) -> TaskWithEndpoint:
-    return task
+    task: EndpointTestTask = Depends(get_task_by_id),
+) -> TaskInfo:
+    return TaskInfo(
+        id=cast(int, task.id),
+        endpoint_id=task.endpoint_id,
+        status=task.status,
+        scheduled_at=task.scheduled_at,
+        last_tried=task.last_tried,
+        created_at=task.created_at,
+    )
