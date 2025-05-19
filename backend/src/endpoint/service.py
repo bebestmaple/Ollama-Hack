@@ -80,7 +80,7 @@ async def batch_create_or_update_endpoints(
     new_ids = []
     if new_urls:
         # 构建插入数据
-        to_insert = [{"url": url} for url in new_urls]
+        to_insert = [{"url": url, "name": url} for url in new_urls]
         await session.execute(insert(EndpointDB).values(to_insert))
         await session.commit()
 
