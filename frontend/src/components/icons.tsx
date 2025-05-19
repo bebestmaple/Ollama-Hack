@@ -1,8 +1,13 @@
 import React from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faArrowUpRightFromSquare,
+  faBook,
+  faBookAtlas,
   faMoon,
   faPlus,
+  faQuestion,
+  faQuestionCircle,
   faSearch,
   faSun,
 } from "@fortawesome/free-solid-svg-icons";
@@ -286,4 +291,24 @@ export const ChevronUpIcon = (props: IconSvgProps) => {
       />
     </svg>
   );
+};
+
+export const QuestionMarkCircleIcon = (props: FontAwesomeIconProps) => {
+  return <FontAwesomeIcon icon={faQuestionCircle} {...props} />;
+};
+
+export const QuestionMarkIcon = (props: FontAwesomeIconProps) => {
+  return <FontAwesomeIcon icon={faQuestion} {...props} />;
+};
+
+export const BoolAtlasIcon = (props: FontAwesomeIconProps) => {
+  return <FontAwesomeIcon icon={faBookAtlas} {...props} />;
+};
+
+export const BookIcon = (props: FontAwesomeIconProps) => {
+  return <FontAwesomeIcon icon={faBook} {...props} />;
+};
+
+export const LinkIcon = (props: FontAwesomeIconProps) => {
+  return <FontAwesomeIcon icon={faArrowUpRightFromSquare} {...props} />;
 };

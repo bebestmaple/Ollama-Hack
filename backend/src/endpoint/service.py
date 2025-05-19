@@ -342,7 +342,8 @@ async def process_models_test_results(
 
             # 添加关联表条目
             links.append(link)
-            mission_model_ids.remove(model.id)
+            if model.id in mission_model_ids:
+                mission_model_ids.remove(model.id)
         except Exception as e:
             logger.error(
                 f"Error processing model {model_performance.ai_model.name}:{model_performance.ai_model.tag}: {e}"

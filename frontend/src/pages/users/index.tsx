@@ -402,6 +402,7 @@ const UsersPage = () => {
               placement="bottom"
             >
               <Button
+                isIconOnly
                 className="mt-4"
                 color="primary"
                 onPress={() => setIsCreateModalOpen(true)}

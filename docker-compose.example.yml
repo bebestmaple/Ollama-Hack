@@ -22,7 +22,7 @@ services:
       - APP__LOG_LEVEL=INFO
       - APP__SECRET_KEY=change_this_to_a_secure_key
       - APP__ALGORITHM=HS256
-      - APP__ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - APP__ACCESS_TOKEN_EXPIRE_MINUTES=10080
       - DATABASE__ENGINE=mysql
       - DATABASE__HOST=db
       - DATABASE__PORT=3306

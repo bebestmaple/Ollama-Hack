@@ -78,7 +78,7 @@ async def test_ai_model(
                             f"Model: {ai_model.name}:{ai_model.tag}"
                         )
                     output += response.response
-                    if "fake-ollama" in output:
+                    if "fake-ollama" in output or "服务器繁忙" in output:
                         logger.error(f"Fake endpoint detected: {ai_model.name}:{ai_model.tag}")
                         return False
                     if response.done:

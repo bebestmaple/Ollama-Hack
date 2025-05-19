@@ -8,7 +8,25 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { SortDescriptor, Tooltip, Form, Snippet } from "@heroui/react";
+import {
+  SortDescriptor,
+  Tooltip,
+  Form,
+  Snippet,
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerBody,
+  Image,
+  Link,
+} from "@heroui/react";
+import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
+import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
+import {
+  oneDark,
+  oneLight,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
+import { useTheme } from "@heroui/use-theme";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCustomQuery, useCustomMutation } from "@/hooks";
@@ -21,12 +39,23 @@ import {
   SortOrder,
 } from "@/types";
 import DashboardLayout from "@/layouts/Main";
-import { DeleteIcon, PlusIcon, StatisticsIcon } from "@/components/icons";
+import {
+  DeleteIcon,
+  PlusIcon,
+  StatisticsIcon,
+  QuestionMarkIcon,
+  LeftArrowIcon,
+  LogoIcon,
+  LinkIcon,
+  BoolAtlasIcon,
+  BookIcon,
+} from "@/components/icons";
 import { DataTable } from "@/components/DataTable";
 import { useDialog } from "@/contexts/DialogContext";
 import { StatsDrawer } from "@/components/apikeys";
-
 const ApiKeysPage = () => {
+  SyntaxHighlighter.registerLanguage("bash", bash);
+  const { theme } = useTheme();
   const { isAdmin } = useAuth();
   const { confirm } = useDialog();
   const [page, setPage] = useState(1);
@@ -40,6 +69,7 @@ const ApiKeysPage = () => {
     null,
   );
   const [isCreating, setIsCreating] = useState(false);
+  const [isHelpDrawerOpen, setIsHelpDrawerOpen] = useState(false);
 
   // 统计抽屉状态
   const [isStatsDrawerOpen, setIsStatsDrawerOpen] = useState(false);
@@ -241,6 +271,7 @@ const ApiKeysPage = () => {
               placement="bottom"
             >
               <Button
+                isIconOnly
                 className="mt-4"
                 color="primary"
                 onPress={() => setIsCreateModalOpen(true)}
@@ -263,6 +294,18 @@ const ApiKeysPage = () => {
         setSize={setSize}
         sortDescriptor={sortDescriptor}
         title="API 密钥列表"
+        topActionContent={
+          <Tooltip color="default" content="使用方法">
+            <Button
+              isIconOnly
+              color="default"
+              variant="bordered"
+              onPress={() => setIsHelpDrawerOpen(true)}
+            >
+              <QuestionMarkIcon />
+            </Button>
+          </Tooltip>
+        }
         total={apiKeys?.total}
         onPageChange={handlePageChange}
         onSearch={handleSearch}
@@ -346,6 +389,144 @@ const ApiKeysPage = () => {
           onClose={closeApiKeyStats}
         />
       )}
+
+      {/* 使用方法抽屉 */}
+      <Drawer
+        backdrop="blur"
+        classNames={{
+          base: "data-[placement=right]:sm:m-2 data-[placement=left]:sm:m-2  rounded-medium",
+        }}
+        isOpen={isHelpDrawerOpen}
+        placement="right"
+        size="2xl"
+        onClose={() => setIsHelpDrawerOpen(false)}
+      >
+        <DrawerContent>
+          <DrawerHeader className="absolute top-0 inset-x-0 z-50 flex flex-row gap-2 px-2 py-2 border-b border-default-200/50 justify-between bg-content1/50 backdrop-saturate-150 backdrop-blur-lg">
+            <Tooltip content="关闭">
+              <Button
+                isIconOnly
+                className="text-default-400 active:opacity-50 text-lg"
+                variant="light"
+                onPress={() => setIsHelpDrawerOpen(false)}
+              >
+                <LeftArrowIcon />
+              </Button>
+            </Tooltip>
+          </DrawerHeader>
+          <DrawerBody className="pt-16 w-full">
+            <div className="flex w-full justify-center items-center pt-4">
+              <LogoIcon className="w-32 h-32" />
+            </div>
+            <div className="flex flex-col gap-2 py-4">
+              <h1 className="text-2xl font-bold leading-7">
+                聚合 API 使用方法
+              </h1>
+              <div className="flex flex-col mt-4 gap-3 items-start">
+                <h2 className="text-medium font-medium">什么是聚合 API ?</h2>
+                <div className="text-medium text-default-500 flex flex-col gap-2">
+                  <p>
+                    聚合 API 是 <i>Ollama Hack</i> 的核心功能，旨在通过一个仿
+                    Ollama 的 OpenAI 兼容 API，智能访问扫描到的高可用模型。
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col mt-4 gap-3 items-start w-full">
+                <h2 className="text-medium font-medium">如何使用聚合 API ?</h2>
+                <div className="text-medium text-default-500 flex flex-col gap-2">
+                  <p>
+                    首先，你需要生成一个 API 密钥。注意，你只会在创建时看到 API
+                    密钥，生成后将无法再次查看，请妥善保管。
+                  </p>
+                  <div className="flex flex-col gap-2 w-full justify-center items-center">
+                    <Image
+                      alt="API 密钥创建"
+                      className="h-full"
+                      src="/images/apikeys/apikey-create.png"
+                    />
+                    <Image
+                      alt="API 密钥创建"
+                      className="h-full"
+                      src="/images/apikeys/apikey-created.png"
+                    />
+                  </div>
+                  <p>
+                    接下来你就可以使用这个 API 密钥来访问聚合 API 了。API
+                    密钥可以通过请求头传递。
+                  </p>
+                  <p>例如，你可以这样访问聚合 API：</p>
+                  <SyntaxHighlighter
+                    language="bash"
+                    style={theme === "light" ? oneLight : oneDark}
+                    wrapLines={true}
+                    wrapLongLines={true}
+                  >
+                    {`curl -X POST http://localhost:3000/v1/chat/completions \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer <你的 API 密钥>" \\
+  -d '{
+    "model": "qwq:latest",
+    "messages": [
+      {"role": "system", "content": "你是一个有帮助的助手"},
+      {"role": "user", "content": "你好，请介绍一下自己"}
+    ]
+  }'`}
+                  </SyntaxHighlighter>
+                  <p>
+                    聚合 API
+                    会智能检测你使用的模型，并按照生成速度顺序尝试最优端点转发你的请求。所有的
+                    API 都和 Ollama 的 API
+                    兼容，包括流式生成等功能。你只需要按照 Ollama 的 API
+                    文档来调用即可，下面提供了 Ollama 官方 API 文档以供参考。
+                  </p>
+                  <div className="flex justify-around w-full mt-4">
+                    <div className="flex gap-3 items-center">
+                      <div className="flex items-center justify-center border-1 border-default-200/50 rounded-small w-11 h-11">
+                        <BookIcon className="w-6 h-6" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <Link
+                          isExternal
+                          showAnchorIcon
+                          anchorIcon={<LinkIcon />}
+                          className="group gap-x-1 text-medium text-foreground font-medium"
+                          href="https://github.com/ollama/ollama/blob/main/docs/api.md"
+                          rel="noreferrer noopener"
+                        >
+                          Ollama API 文档
+                        </Link>
+                        <p className="text-small text-default-500">
+                          Ollama 原生 API 文档
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 items-center">
+                      <div className="flex items-center justify-center border-1 border-default-200/50 rounded-small w-11 h-11">
+                        <BoolAtlasIcon className="w-6 h-6" />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <Link
+                          isExternal
+                          showAnchorIcon
+                          anchorIcon={<LinkIcon />}
+                          className="group gap-x-1 text-medium text-foreground font-medium"
+                          href="https://github.com/ollama/ollama/blob/main/docs/openai.md"
+                          rel="noreferrer noopener"
+                        >
+                          OpenAI 兼容 API 文档
+                        </Link>
+                        <p className="text-small text-default-500">
+                          OpenAI 兼容 API 文档
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </DashboardLayout>
   );
 };

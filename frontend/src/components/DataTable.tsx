@@ -94,6 +94,7 @@ export interface DataTableProps<T> {
   setSize?: (size: number) => void;
   autoSearchDelay?: number;
   removeWrapper?: boolean;
+  topActionContent?: ReactNode;
 }
 
 // 通用DataTable组件
@@ -123,6 +124,7 @@ export const DataTable = <T extends { id?: number | string }>({
   setSize,
   autoSearchDelay = 0,
   removeWrapper = false,
+  topActionContent,
 }: DataTableProps<T>) => {
   // 获取表头列
   const headerColumns = React.useMemo(() => {
@@ -239,6 +241,7 @@ export const DataTable = <T extends { id?: number | string }>({
               </DropdownMenu>
             </Dropdown>
           )}
+          {topActionContent}
           {addButtonProps && (
             <Tooltip color="primary" content={addButtonProps.tooltip || "添加"}>
               <Button

@@ -287,6 +287,7 @@ const PlansPage = () => {
               placement="bottom"
             >
               <Button
+                isIconOnly
                 className="mt-4"
                 color="primary"
                 onPress={() => setIsCreateModalOpen(true)}
