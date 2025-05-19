@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import BackgroundTasks, Depends, HTTPException, status
 from fastapi_pagination import Page, Params, set_page
 from fastapi_pagination.ext.sqlmodel import apaginate
 from sqlalchemy import func
@@ -59,6 +59,7 @@ async def get_endpoint_by_id(session: DBSessionDep, endpoint_id: int) -> Endpoin
 
 async def batch_create_or_update_endpoints(
     session: DBSessionDep,
+    background_task: BackgroundTasks,
     endpoint_batch: EndpointBatchCreate,
 ) -> None:
     """
@@ -80,6 +81,7 @@ async def batch_create_or_update_endpoints(
     new_ids = []
     if new_urls:
         # 构建插入数据
+        new_urls = list(set(urls))
         to_insert = [{"url": url, "name": url} for url in new_urls]
         await session.execute(insert(EndpointDB).values(to_insert))
         await session.commit()
@@ -94,8 +96,14 @@ async def batch_create_or_update_endpoints(
     all_ids = list(existing.values()) + new_ids
 
     # 使用调度器为每个端点创建测试任务
-    for eid in all_ids:
-        await create_test_task(session, eid)
+    async def create_test_tasks():
+        from .scheduler import get_scheduler
+
+        for eid in all_ids:
+            scheduler = get_scheduler()
+            await scheduler.schedule_endpoint_test(eid, now() + timedelta(seconds=5))
+
+    background_task.add_task(create_test_tasks)
 
 
 async def get_endpoint_by_url(session: DBSessionDep, url: str) -> EndpointDB:
