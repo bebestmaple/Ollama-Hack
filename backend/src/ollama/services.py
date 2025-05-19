@@ -1,10 +1,14 @@
+import json
 from typing import Optional
 
 from aiohttp import ClientResponseError
 from fastapi import HTTPException, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy import exists
+from sqlmodel import select
 
+from src.ai_model.models import AIModelDB, AIModelStatusEnum, EndpointAIModelDB
 from src.apikey.models import ApiKeyDB
 from src.apikey.service import (
     check_rate_limits,
@@ -72,6 +76,25 @@ class RequestInfo(BaseModel):
             model_tag=tag,
             stream=stream,
         )
+
+
+async def get_tags(
+    session: DBSessionDep,
+):
+    query = select(AIModelDB.name, AIModelDB.tag)
+    subquery = select(EndpointAIModelDB).where(
+        (EndpointAIModelDB.ai_model_id == AIModelDB.id)
+        & (EndpointAIModelDB.status == AIModelStatusEnum.AVAILABLE)
+    )
+    query = query.where(exists(subquery))
+    result = await session.execute(query)
+
+    response = {"models": []}
+    for row in result.all():
+        name = row[0]
+        tag = row[1]
+        response["models"].append({"model": f"{name}:{tag}", "name": f"{name}:{tag}"})
+    return response
 
 
 async def send_request_to_endpoint(
@@ -152,12 +175,15 @@ async def send_request_to_endpoint(
 async def request_forwarding(
     full_path: str, request_raw: Request, session: DBSessionDep
 ) -> StreamingResponse | PlainTextResponse:
-    if full_path.strip("/") == "":
-        return PlainTextResponse("Hello, World!")
+    match full_path.strip("/"):
+        case "":
+            return PlainTextResponse("Hello, World!")
+        case "api/tags":
+            return PlainTextResponse(json.dumps(await get_tags(session)))
 
     from src.endpoint.service import (
         get_ai_model_by_name_and_tag,
-        get_best_endpoint_for_model,
+        get_best_endpoints_for_model,
     )
 
     # Get and validate API key
@@ -181,9 +207,17 @@ async def request_forwarding(
             raise HTTPException(status_code=404, detail="Model not found")
 
         # Get best endpoint
-        endpoint = await get_best_endpoint_for_model(session, model.id)
+        endpoints = await get_best_endpoints_for_model(session, model.id)
 
-        return await send_request_to_endpoint(request_info, session, api_key, endpoint)
+        error = HTTPException(500, "Fail to connect to endpoint")
+        for endpoint in endpoints:
+            try:
+                return await send_request_to_endpoint(request_info, session, api_key, endpoint)
+            except Exception as e:
+                logger.error(f"Error: {e}")
+                error = e
+                continue
+        raise error
     except HTTPException as e:
         await log_api_key_usage(
             session,

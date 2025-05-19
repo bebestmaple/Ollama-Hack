@@ -385,10 +385,10 @@ async def test_and_update_endpoint_and_models(
         return
 
 
-async def get_best_endpoint_for_model(
+async def get_best_endpoints_for_model(
     session: DBSessionDep,
     model_id: int,
-) -> EndpointDB:
+) -> list[EndpointDB]:
     """
     Get the best endpoint for a model.
     """
@@ -402,10 +402,10 @@ async def get_best_endpoint_for_model(
     )
     query = query.order_by(col(EndpointAIModelDB.token_per_second).desc())
     result = await session.execute(query)
-    endpoint_model_association = result.scalars().first()
-    if endpoint_model_association is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found")
-    return endpoint_model_association.endpoint
+    links = result.scalars().all()
+    if len(links) >= 10:
+        links = links[:10]
+    return [link.endpoint for link in links]
 
 
 async def get_ai_model_links_by_endpoint_id(

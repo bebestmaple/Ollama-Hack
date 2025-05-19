@@ -1,8 +1,6 @@
-# Ollama-Hack 🚀
+![logo](./assets/favicon.svg)
 
-[English](README.EN.md) | [简体中文](README.md)
-
-![主页](./assets/index.png)
+# Ollama-Hack V2 🚀
 
 ## 📖 简介
 
@@ -10,22 +8,30 @@
 >
 > 来试试 Ollama-Hack 吧！它是一个基于 Python 的中转平台，能够帮助你轻松管理、测试和无缝使用多个 Ollama 接口。
 
-一个用于管理、测试和转发 Ollama API 的服务。它可以集中管理多个 Ollama 端点，并自动选择最优的线路 (Token/s 最高) 进行使用，提供兼容 OpenAI 的 API。平台提供友好的 Web 界面，方便用户管理端点、模型和 API 密钥。
+Ollama-Hack 是一个用于管理、测试和转发 Ollama API 的服务。它可以集中管理多个 Ollama 端点，并根据性能自动选择最优的线路，提供兼容 OpenAI 的 API。平台提供友好的 Web 界面，方便用户管理端点、模型、API 密钥和用量计划。
 
 ## ✨ 功能特性
 
 -   🔄 **多端点管理**：集中管理多个 Ollama 服务端点，可以批量进行导入
+    ![端点管理](./assets/endpoints.png)
+-   🔍 **端点详情**：查看每个端点的详细信息和可用模型
+    ![端点详情](./assets/endpoint_details.png)
 -   🧩 **兼容 OpenAI API**：提供兼容 OpenAI 的 API 接口
 -   ⚖️ **最优线路选择**：根据 Token/s 性能自动选择最优的 Ollama 端点
 -   🔑 **API 密钥管理**：生成和管理用于身份验证的 API 密钥
 -   📊 **性能监控**：测试和显示不同端点上模型的性能指标
--   🔍 **模型查询**：搜索和过滤可用的模型
+-   📝 **模型管理**：搜索和查看可用的模型
+    ![模型管理](./assets/models.png)
+-   📈 **模型性能**：查看每个模型的详细性能数据
+    ![模型详情](./assets/model_details.png)
 -   🔐 **用户管理**：管理员可以创建和管理用户账户
+-   💰 **计划管理**：创建和管理不同的用量计划，限制 API 请求频率
 -   🌙 **深色模式**：支持明亮/暗黑主题切换
 
 ## 🛠️ 环境要求
 
--   Python 3.12+ 或 Docker
+-   Docker 和 Docker Compose（推荐）
+-   或 Python 3.12+（直接运行）
 
 ## 🚀 安装与运行
 
@@ -34,40 +40,76 @@
 如果你已安装 Docker 和 Docker Compose，可以使用以下命令一键启动：
 
 ```bash
+# 克隆仓库
 git clone https://github.com/timlzh/Ollama-Hack.git
 cd Ollama-Hack
+
+# 复制并修改docker-compose配置
+cp docker-compose.example.yml docker-compose.yml
+# 编辑docker-compose.yml，修改密码和密钥等敏感信息
+
 # 构建并启动容器
 docker-compose up -d
 
-# 查看日志（包含初始管理员账户信息）
+# 查看日志
 docker-compose logs -f
 ```
 
-打开 http://localhost:8000 即可使用。
+服务启动后，打开 http://localhost:3000/init 即可使用。
 
-### 方法二：直接运行
+### 方法二：直接运行（开发环境）
+
+#### 后端
 
 ```bash
-git clone https://github.com/timlzh/Ollama-Hack.git
-cd Ollama-Hack
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+cd backend
+# 使用Poetry安装依赖
+pip install poetry
+poetry install
+
+# 启动服务
+poetry run uvicorn src.main:app --host 0.0.0.0 --port 8000
+```
+
+#### 前端
+
+```bash
+cd frontend
+# 安装依赖
+yarn install
+
+# 开发模式启动
+yarn dev
 ```
 
 ## 📝 使用方法
 
 ### Web 界面
 
-访问 http://localhost:8000 来使用 Web 界面。为了应用安全，首次启动时会生成一个随机密码的管理员账户。你可以在日志中找到这个密码：
+访问 http://localhost:3000/init 来初始化管理员账户。
 
-![初始管理员账户信息](./assets/password.png)
+登录后，你可以：
 
-登录后，你可以创建新的用户账户，管理 API 密钥和端点。
+-   创建和管理用户账户
+-   添加和管理 Ollama 端点
+-   生成 API 密钥
+-   创建和分配用量计划
+-   查看模型性能数据
+
+### 计划管理
+
+V2 版本新增了计划管理功能，管理员可以创建不同的用量计划，并将其分配给用户。每个计划可以设置：
+
+-   每分钟请求限制 (RPM)
+-   每天请求限制 (RPD)
+-   默认计划标记
 
 ### API 使用示例
 
+#### 兼容 Ollama API
+
 ```bash
-curl -N -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
+curl -N -X POST http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
@@ -81,7 +123,26 @@ curl -N -X POST http://your-server-address:8000/api/v1/ollama/chat/completions \
   }'
 ```
 
-理论上支持 Ollama 支持的所有 OpenAI Compatible API，具体列表见：[Ollama/OpenAI Compability](https://github.com/ollama/ollama/blob/main/docs/openai.md)，接口的返回结构和内容都与直接使用 Ollama 无异。
+Ollama-Hack 支持 Ollama 的全部 OpenAI 兼容 API，详细列表请参考：[Ollama/OpenAI Compability](https://github.com/ollama/ollama/blob/main/docs/openai.md)。
+
+## 🔧 配置选项
+
+### 环境变量
+
+在 docker-compose.yml 文件中，你可以通过以下环境变量自定义后端：
+
+```yaml
+environment:
+    - APP__ENV=prod # 环境类型：dev 或 prod
+    - APP__LOG_LEVEL=INFO # 日志级别
+    - APP__SECRET_KEY=change_this_key # JWT密钥
+    - APP__ACCESS_TOKEN_EXPIRE_MINUTES=30 # 访问令牌过期时间
+    - DATABASE__ENGINE=mysql # 数据库引擎
+    - DATABASE__HOST=db # 数据库主机
+    - DATABASE__USERNAME=user # 数据库用户名
+    - DATABASE__PASSWORD=password # 数据库密码
+    - DATABASE__DB=ollama_hack # 数据库名称
+```
 
 ## 👤 作者
 
@@ -99,9 +160,7 @@ MIT License
     ![端点管理](./assets/endpoints.png)
 -   模型管理
     ![模型管理](./assets/models.png)
--   模型性能
-    ![模型性能](./assets/model_performance.png)
--   API 密钥管理
-    ![API 密钥](./assets/api-key.png)
--   用户管理
-    ![用户管理](./assets/user.png)
+-   模型详情
+    ![模型详情](./assets/model_details.png)
+-   端点详情
+    ![端点详情](./assets/endpoint_details.png)
