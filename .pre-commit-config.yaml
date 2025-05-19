@@ -10,13 +10,14 @@
 fail_fast: false
 
 default_language_version:
-    python: python3.13.0
+    python: python3
 
 repos:
     - repo: https://github.com/psf/black
       rev: 24.10.0
       hooks:
           - id: black
+            entry: bash -c 'cd backend && black .'
             language_version: python3
 
     - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -28,6 +29,15 @@ repos:
           # When running with --fix, Ruff's lint hook should be placed before Ruff's formatter hook,
           # and before Black, isort, and other formatting tools, as Ruff's fix behavior can output code changes that require reformatting.
           - id: ruff
-            args: [--fix]
+            entry: bash -c 'cd backend && ruff check'
+            args: ["--fix"]
           # Run the formatter.
           - id: ruff-format
+            entry: bash -c 'cd backend && ruff format'
+    - repo: https://github.com/pre-commit/mirrors-eslint
+      rev: v9.22.0
+      hooks:
+          - id: eslint
+            entry: bash -c 'cd frontend && yarn lint'
+            files: \.[jt]sx?$ # *.js, *.jsx, *.ts and *.tsx
+            types: [file]
