@@ -2,8 +2,9 @@ version: '3.8'
 
 services:
   frontend:
-    image: timlzh/ollama-hack-frontend:latest
-    # image: ghcr.io/timlzh/ollama-hack-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:80"
     depends_on:
@@ -13,8 +14,9 @@ services:
       - app-network
 
   backend:
-    image: timlzh/ollama-hack-backend:latest
-    # image: ghcr.io/timlzh/ollama-hack-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       - APP__ENV=prod
       - APP__LOG_LEVEL=INFO
