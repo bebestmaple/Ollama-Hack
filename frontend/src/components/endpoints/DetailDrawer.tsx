@@ -1,4 +1,9 @@
-import { Drawer, DrawerBody, DrawerContent, DrawerHeader } from "@heroui/react";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerHeader,
+} from "@heroui/drawer";
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Divider } from "@heroui/divider";
 import { Chip } from "@heroui/chip";

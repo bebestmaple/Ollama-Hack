@@ -1,4 +1,4 @@
-import { Chip } from "@heroui/react";
+import { Chip } from "@heroui/chip";
 
 import { AIModelStatusEnum, EndpointStatusEnum } from "@/types";
 

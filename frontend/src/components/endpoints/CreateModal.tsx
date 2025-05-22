@@ -11,7 +11,7 @@ import {
   ModalFooter,
 } from "@heroui/modal";
 import { addToast } from "@heroui/toast";
-import { Form } from "@heroui/react";
+import { Form } from "@heroui/form";
 
 import { endpointApi } from "@/api";
 import { EndpointCreate } from "@/types";

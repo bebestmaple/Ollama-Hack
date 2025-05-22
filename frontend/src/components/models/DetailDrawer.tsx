@@ -3,10 +3,8 @@ import {
   DrawerBody,
   DrawerContent,
   DrawerHeader,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@heroui/react";
+} from "@heroui/drawer";
+import { Popover, PopoverContent, PopoverTrigger } from "@heroui/popover";
 import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Divider } from "@heroui/divider";
 import { Tooltip } from "@heroui/tooltip";

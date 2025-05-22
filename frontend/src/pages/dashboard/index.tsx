@@ -1,5 +1,5 @@
 import { Card, CardHeader } from "@heroui/card";
-import { Progress } from "@heroui/react";
+import { Progress } from "@heroui/progress";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCustomQuery } from "@/hooks";

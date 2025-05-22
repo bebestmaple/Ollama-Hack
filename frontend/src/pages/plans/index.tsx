@@ -8,13 +8,11 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import {
-  SortDescriptor,
-  Checkbox,
-  Tooltip,
-  Form,
-  addToast,
-} from "@heroui/react";
+import { SortDescriptor } from "@react-types/shared";
+import { Form } from "@heroui/form";
+import { Tooltip } from "@heroui/tooltip";
+import { addToast } from "@heroui/toast";
+import { Checkbox } from "@heroui/checkbox";
 
 import { useCustomQuery, useCustomMutation } from "@/hooks";
 import { EnhancedAxiosError, planApi } from "@/api";

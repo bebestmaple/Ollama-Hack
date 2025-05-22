@@ -8,7 +8,8 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import { addToast, Form } from "@heroui/react";
+import { addToast } from "@heroui/toast";
+import { Form } from "@heroui/form";
 
 import { endpointApi, EnhancedAxiosError } from "@/api";
 import { EndpointUpdate } from "@/types";

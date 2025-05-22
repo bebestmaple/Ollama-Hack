@@ -9,15 +9,12 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
-import {
-  SortDescriptor,
-  Checkbox,
-  Tooltip,
-  addToast,
-  Chip,
-  Select,
-  SelectItem,
-} from "@heroui/react";
+import { SortDescriptor } from "@react-types/shared";
+import { Checkbox } from "@heroui/checkbox";
+import { Tooltip } from "@heroui/tooltip";
+import { addToast } from "@heroui/toast";
+import { Chip } from "@heroui/chip";
+import { Select, SelectItem } from "@heroui/select";
 
 import { useCustomQuery, useCustomMutation } from "@/hooks";
 import { useAuth } from "@/contexts/AuthContext";

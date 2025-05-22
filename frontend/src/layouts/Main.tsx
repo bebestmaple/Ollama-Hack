@@ -16,7 +16,7 @@ import {
   NavbarMenuToggle,
 } from "@heroui/navbar";
 import { useNavigate } from "react-router-dom";
-import { User } from "@heroui/react";
+import { User } from "@heroui/user";
 import { useState } from "react";
 import { useTheme } from "@heroui/use-theme";
 import { Switch } from "@heroui/switch";

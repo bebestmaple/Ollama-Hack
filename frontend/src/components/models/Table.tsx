@@ -1,7 +1,7 @@
 import React from "react";
 import { Button } from "@heroui/button";
 import { SortDescriptor } from "@heroui/table";
-import { Tooltip } from "@heroui/react";
+import { Tooltip } from "@heroui/tooltip";
 
 import { DataTable } from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";

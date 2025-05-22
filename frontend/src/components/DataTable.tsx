@@ -7,17 +7,17 @@ import {
   TableRow,
   TableCell,
   SortDescriptor,
-} from "@heroui/table";
-import {
   Selection,
-  Button,
+} from "@heroui/table";
+import { Button } from "@heroui/button";
+import {
   Dropdown,
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
-  Pagination,
-  Tooltip,
-} from "@heroui/react";
+} from "@heroui/dropdown";
+import { Pagination } from "@heroui/pagination";
+import { Tooltip } from "@heroui/tooltip";
 
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorDisplay from "./ErrorDisplay";

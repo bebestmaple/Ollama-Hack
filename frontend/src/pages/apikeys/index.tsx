@@ -8,18 +8,17 @@ import {
   ModalBody,
   ModalFooter,
 } from "@heroui/modal";
+import { Tooltip } from "@heroui/tooltip";
+import { Form } from "@heroui/form";
+import { Snippet } from "@heroui/snippet";
+import { Link } from "@heroui/link";
+import { Image } from "@heroui/image";
 import {
-  SortDescriptor,
-  Tooltip,
-  Form,
-  Snippet,
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerBody,
-  Image,
-  Link,
-} from "@heroui/react";
+} from "@heroui/drawer";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
 import {
@@ -27,6 +26,7 @@ import {
   oneLight,
 } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useTheme } from "@heroui/use-theme";
+import { SortDescriptor } from "@react-types/shared";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCustomQuery, useCustomMutation } from "@/hooks";
