@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import random
 from typing import List, Optional
 
 from apscheduler.executors.asyncio import AsyncIOExecutor
@@ -170,6 +171,9 @@ class SchedulerService:
         async with sessionmanager.session() as session:
             result = await session.execute(select(col(EndpointDB.id)))
             endpoint_ids: List[int | None] = list(result.scalars().all())
+
+        # Randomize endpoint IDs to improve detection rate
+        random.shuffle(endpoint_ids)
 
         logger.info(f"Found {len(endpoint_ids)} endpoints to update")
         batch_size = 500
