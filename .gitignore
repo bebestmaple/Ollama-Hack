@@ -28,4 +28,5 @@
 ### MacOS ###
 .DS_Store
 
-./data
+data/*
+docker-compose.yml
