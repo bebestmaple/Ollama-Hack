@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 
 from aiohttp import ClientResponseError
@@ -97,11 +98,11 @@ async def get_tags(
     return response
 
 
-async def send_request_to_endpoint(
+async def send_request_to_endpoints(
     request_info: RequestInfo,
     session: DBSessionDep,
     api_key: ApiKeyDB,
-    endpoint: EndpointDB,
+    endpoints: list[EndpointDB],
 ):
     # Create a function to log the API key usage after the request completes
     async def log_usage(status_code):
@@ -117,55 +118,70 @@ async def send_request_to_endpoint(
     if request_info.stream:
 
         async def stream_response():
+            error = HTTPException(500, "Fail to connect to endpoint")
+            for endpoint in endpoints:
+                logger.info(f"Sending request to endpoint: {endpoint.url}")
+                try:
+                    async with OllamaClient(endpoint.url).connect() as client:
+                        generator = await client._request(
+                            request_info.method,
+                            request_info.full_path,
+                            json=request_info.request,
+                            headers=request_info.headers,
+                            params=request_info.params,
+                            stream=True,
+                        )
+                        async with asyncio.timeout(10):
+                            first_response = await generator.__anext__()
+                            yield first_response
+
+                        async for response in generator:
+                            yield response
+                    # Log successful request
+                    await log_usage(200)
+                    logger.info(f"Request to endpoint {endpoint.url} completed")
+                    return
+                except Exception as e:
+                    error = e
+
             try:
-                async with OllamaClient(endpoint.url).connect() as client:
-                    async for response in await client._request(
-                        request_info.method,
-                        request_info.full_path,
-                        json=request_info.request,
-                        headers=request_info.headers,
-                        params=request_info.params,
-                        stream=True,
-                    ):
-                        yield response
-                # Log successful request
-                await log_usage(200)
+                raise error
             except ClientResponseError as e:
-                logger.error(f"Error: {e}")
-                # Log failed request
+                logger.error(f"Error: {e.status} {e.message}")
                 await log_usage(e.status)
                 yield f"Error: {e.status} {e.message}"
             except Exception as e:
                 logger.error(f"Error: {e}")
-                # Log failed request
                 await log_usage(500)
                 yield "Error: Failed to connect to the endpoint"
 
         return StreamingResponse(stream_response(), media_type="text/event-stream")
     else:
+        error = HTTPException(500, "Fail to connect to endpoint")
+        for endpoint in endpoints:
+            logger.info(f"Sending request to endpoint: {endpoint.url}")
+            try:
+                async with OllamaClient(endpoint.url).connect() as client:
+                    response = await client._request(
+                        request_info.method,
+                        request_info.full_path,
+                        json=request_info.request,
+                        headers=request_info.headers,
+                        params=request_info.params,
+                    )
+                    await log_usage(200)
+                    logger.info(f"Request to endpoint {endpoint.url} completed")
+                    return PlainTextResponse(response)
+            except Exception as e:
+                error = e
         try:
-            async with OllamaClient(endpoint.url).connect() as client:
-                response = await client._request(
-                    request_info.method,
-                    request_info.full_path,
-                    json=request_info.request,
-                    headers=request_info.headers,
-                    params=request_info.params,
-                )
-                # Log successful request
-                await log_usage(200)
-                return PlainTextResponse(response)
-        except HTTPException as e:
-            # Log failed request
-            await log_usage(e.status_code)
-            raise e
+            raise error
         except ClientResponseError as e:
-            # Log failed request
+            logger.error(f"Error: {e.status} {e.message}")
             await log_usage(e.status)
             raise HTTPException(status_code=e.status, detail=e.message) from e
         except Exception as e:
             logger.error(f"Error: {e}")
-            # Log failed request
             await log_usage(500)
             raise HTTPException(
                 status_code=500, detail="Error: Failed to connect to the endpoint"
@@ -225,15 +241,11 @@ async def request_forwarding(
         # Get best endpoint
         endpoints = await get_best_endpoints_for_model(session, model.id)
 
-        error = HTTPException(500, "Fail to connect to endpoint")
-        for endpoint in endpoints:
-            try:
-                return await send_request_to_endpoint(request_info, session, api_key, endpoint)
-            except Exception as e:
-                logger.error(f"Error: {e}")
-                error = e
-                continue
-        raise error
+        try:
+            return await send_request_to_endpoints(request_info, session, api_key, endpoints)
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            raise e
     except HTTPException as e:
         await log_api_key_usage(
             session,
