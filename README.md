@@ -40,19 +40,14 @@ Ollama-Hack 是一个用于管理、测试和转发 Ollama API 的服务。它�
 如果你已安装 Docker 和 Docker Compose，可以使用以下命令一键启动：
 
 ```bash
-# 克隆仓库
-git clone https://github.com/timlzh/Ollama-Hack.git
-cd Ollama-Hack
+# 下载 docker-compose.yml 文件
+curl -o docker-compose.yml https://raw.githubusercontent.com/timlzh/ollama-hack/main/docker-compose.example.yml
 
-# 复制并修改docker-compose配置
-cp docker-compose.example.yml docker-compose.yml
-# 编辑docker-compose.yml，修改密码和密钥等敏感信息
+# 修改 docker-compose.yml 文件中的密钥等敏感配置
+vim docker-compose.yml
 
-# 构建并启动容器
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
+# 启动服务
+docker compose up -d
 ```
 
 服务启动后，打开 http://localhost:3000/init 即可使用。

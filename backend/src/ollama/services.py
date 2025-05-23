@@ -1,9 +1,8 @@
-import json
 from typing import Optional
 
 from aiohttp import ClientResponseError
 from fastapi import HTTPException, Request
-from fastapi.responses import PlainTextResponse, StreamingResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import exists
 from sqlmodel import select
@@ -175,12 +174,12 @@ async def send_request_to_endpoint(
 
 async def request_forwarding(
     full_path: str, request_raw: Request, session: DBSessionDep
-) -> StreamingResponse | PlainTextResponse:
+) -> StreamingResponse | PlainTextResponse | JSONResponse:
     match full_path.strip("/"):
         case "":
             return PlainTextResponse("Hello, World!")
         case "api/tags":
-            return PlainTextResponse(json.dumps(await get_tags(session)))
+            return JSONResponse(await get_tags(session))
         case "v1/models":
             tags = await get_tags(session)
             timestamp = int(now().timestamp())
@@ -196,7 +195,7 @@ async def request_forwarding(
                     for model in tags["models"]
                 ],
             }
-            return PlainTextResponse(json.dumps(result))
+            return JSONResponse(result)
 
     from src.endpoint.service import (
         get_ai_model_by_name_and_tag,
