@@ -192,6 +192,7 @@ async def log_api_key_usage(
     status_code: int,
 ) -> Optional[ApiKeyUsageLogDB]:
     """Log API key usage"""
+    await session.refresh(api_key)
     # Ensure api_key.id is not None
     if api_key.id is None:
         logger.warning("Attempted to log usage for API key with null ID")

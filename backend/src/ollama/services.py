@@ -138,8 +138,8 @@ async def send_request_to_endpoints(
                         async for response in generator:
                             yield response
                     # Log successful request
-                    await log_usage(200)
                     logger.info(f"Request to endpoint {endpoint.url} completed")
+                    await log_usage(200)
                     return
                 except Exception as e:
                     error = e
@@ -169,8 +169,8 @@ async def send_request_to_endpoints(
                         headers=request_info.headers,
                         params=request_info.params,
                     )
-                    await log_usage(200)
                     logger.info(f"Request to endpoint {endpoint.url} completed")
+                    await log_usage(200)
                     return PlainTextResponse(response)
             except Exception as e:
                 error = e
