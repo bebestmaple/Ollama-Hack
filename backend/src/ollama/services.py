@@ -18,6 +18,7 @@ from src.apikey.service import (
 from src.database import DBSessionDep
 from src.endpoint.models import EndpointDB
 from src.logging import get_logger
+from src.utils import now
 
 from .client import OllamaClient
 
@@ -180,6 +181,22 @@ async def request_forwarding(
             return PlainTextResponse("Hello, World!")
         case "api/tags":
             return PlainTextResponse(json.dumps(await get_tags(session)))
+        case "v1/models":
+            tags = await get_tags(session)
+            timestamp = int(now().timestamp())
+            result = {
+                "object": "list",
+                "data": [
+                    {
+                        "id": model["model"],
+                        "object": "model",
+                        "owned_by": "user",
+                        "created": timestamp,
+                    }
+                    for model in tags["models"]
+                ],
+            }
+            return PlainTextResponse(json.dumps(result))
 
     from src.endpoint.service import (
         get_ai_model_by_name_and_tag,
