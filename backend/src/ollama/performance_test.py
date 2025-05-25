@@ -48,7 +48,8 @@ async def get_ai_models(
 async def test_ai_model(
     ollama_client: OllamaClient,
     ai_model: AIModelDB,
-    prompt: str = "将以下内容，翻译成现代汉语：先帝创业未半而中道崩殂，今天下三分，益州疲弊，此诚危急存亡之秋也。",
+    # prompt: str = "将以下内容，翻译成现代汉语：先帝创业未半而中道崩殂，今天下三分，益州疲弊，此诚危急存亡之秋也。",
+    prompt: str = "请输出：服务器繁忙，请稍后再试",
     timeout: int = 60,
 ) -> AIModelPerformanceDB | Literal[False]:
     """
@@ -170,8 +171,11 @@ async def test_endpoint(
                 model_performance = ModelPerformance(ai_model=ai_model, performance=performance)
 
             if performance is False:
-                model_performance.performance = AIModelPerformanceDB(
-                    status=AIModelStatusEnum.FAKE,
+                model_performance = ModelPerformance(
+                    ai_model=ai_model,
+                    performance=AIModelPerformanceDB(
+                        status=AIModelStatusEnum.FAKE,
+                    ),
                 )
                 test_reuslt.model_performances.append(model_performance)
                 test_reuslt.endpoint_performance = EndpointPerformanceDB(
