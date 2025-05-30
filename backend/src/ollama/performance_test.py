@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -48,10 +48,9 @@ async def get_ai_models(
 async def test_ai_model(
     ollama_client: OllamaClient,
     ai_model: AIModelDB,
-    # prompt: str = "将以下内容，翻译成现代汉语：先帝创业未半而中道崩殂，今天下三分，益州疲弊，此诚危急存亡之秋也。",
-    prompt: str = "请输出：服务器繁忙，请稍后再试",
+    prompt: str = "将以下内容，翻译成现代汉语：先帝创业未半而中道崩殂，今天下三分，益州疲弊，此诚危急存亡之秋也。",
     timeout: int = 60,
-) -> AIModelPerformanceDB | Literal[False]:
+) -> AIModelPerformanceDB:
     """
     Test the performance of the AI model by making a request to the /generate endpoint.
 
@@ -81,7 +80,9 @@ async def test_ai_model(
                     output += response.response
                     if "fake-ollama" in output or "服务器繁忙" in output:
                         logger.error(f"Fake endpoint detected: {ai_model.name}:{ai_model.tag}")
-                        return False
+                        return AIModelPerformanceDB(
+                            status=AIModelStatusEnum.FAKE,
+                        )
                     if response.done:
                         break
         except asyncio.TimeoutError:
@@ -158,32 +159,26 @@ async def test_endpoint(
                 continue
 
             performance = await test_ai_model(ollama_client, ai_model)
-            if performance:
-                if performance.status == AIModelStatusEnum.AVAILABLE:
+            match performance.status:
+                case AIModelStatusEnum.AVAILABLE:
                     logger.info(
                         f"Performance: {performance.token_per_second:.2f} tps "
                         f"({performance.output_tokens} tokens in {performance.total_time:.2f} s), "
                         f"Model: {ai_model.name}:{ai_model.tag} @ "
                         f"{endpoint.name},"
                     )
-                else:
+                case AIModelStatusEnum.UNAVAILABLE:
                     logger.debug(f"Model {ai_model.name}:{ai_model.tag} is not available, skipping")
-                model_performance = ModelPerformance(ai_model=ai_model, performance=performance)
+                case AIModelStatusEnum.FAKE:
+                    logger.debug(f"Fake endpoint detected: {endpoint.name}")
+                    # set endpoint status to fake
+                    test_reuslt.endpoint_performance = EndpointPerformanceDB(
+                        status=EndpointStatusEnum.FAKE,
+                    )
+                case _:
+                    logger.debug(f"Model {ai_model.name}:{ai_model.tag} is not available, skipping")
 
-            if performance is False:
-                model_performance = ModelPerformance(
-                    ai_model=ai_model,
-                    performance=AIModelPerformanceDB(
-                        status=AIModelStatusEnum.FAKE,
-                    ),
-                )
-                test_reuslt.model_performances.append(model_performance)
-                test_reuslt.endpoint_performance = EndpointPerformanceDB(
-                    status=EndpointStatusEnum.FAKE,
-                )
-                logger.debug(f"Fake endpoint detected: {endpoint.name}")
-                continue
-
+            model_performance = ModelPerformance(ai_model=ai_model, performance=performance)
             test_reuslt.model_performances.append(model_performance)
 
         return test_reuslt
