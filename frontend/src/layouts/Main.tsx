@@ -23,6 +23,7 @@ import { Switch } from "@heroui/switch";
 
 import { LogoIcon, MoonIcon, SunIcon } from "@/components/icons";
 import { useAuth } from "@/contexts/AuthContext";
+import Footer from "@/components/Footer";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -96,9 +97,9 @@ const DashboardLayout = ({
   );
 
   return (
-    <div className="flex h-screen">
+    <div className="flex flex-col min-h-screen">
       {/* 主内容区域 */}
-      <div className="flex-1 overflow-x-hidden overflow-y-auto">
+      <div className="flex-1 flex flex-col overflow-x-hidden overflow-y-auto">
         {/* 导航栏 */}
         <Navbar isBordered onMenuOpenChange={setIsMenuOpen}>
           <NavbarContent>
@@ -191,9 +192,10 @@ const DashboardLayout = ({
             </NavbarMenuItem>
           </NavbarMenu>
         </Navbar>
-        <main className="p-2 lg:p-8 lg:pl-24 lg:pr-24 md:p-4 md:pl-12 md:pr-12 sm:p-2 sm:pl-8 sm:pr-8">
+        <main className="flex-1 p-2 lg:p-8 lg:pl-24 lg:pr-24 md:p-4 md:pl-12 md:pr-12 sm:p-2 sm:pl-8 sm:pr-8">
           {children}
         </main>
+        <Footer />
       </div>
     </div>
   );
