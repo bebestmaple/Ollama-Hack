@@ -260,6 +260,7 @@ async def check_rate_limits(
         .where(
             ApiKeyUsageLogDB.api_key_id == api_key.id,
             ApiKeyUsageLogDB.timestamp >= one_minute_ago,
+            ApiKeyUsageLogDB.status_code < 400,
         )
     )
     rpm_count = rpm_result.scalar_one()
@@ -278,6 +279,7 @@ async def check_rate_limits(
         .where(
             ApiKeyUsageLogDB.api_key_id == api_key.id,
             ApiKeyUsageLogDB.timestamp >= today_start,
+            ApiKeyUsageLogDB.status_code < 400,
         )
     )
     rpd_count = rpd_result.scalar_one()

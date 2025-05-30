@@ -221,8 +221,9 @@ async def request_forwarding(
     # Get and validate API key
     api_key, user, plan = await get_api_key_from_request(request_raw, session)
 
-    # Check rate limits
-    await check_rate_limits(session, api_key, plan)
+    if not user.is_admin:
+        # Check rate limits
+        await check_rate_limits(session, api_key, plan)
 
     # Get request data
     logger.info(f"Received request for path: {full_path}")
