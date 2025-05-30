@@ -17,7 +17,7 @@ const Footer = ({ className = "" }: FooterProps) => {
           <Tooltip content="GitHub">
             <Link
               className="flex items-center gap-2 text-default-500 hover:text-primary transition-colors"
-              href="https://github.com/timlzh/OllamaHack"
+              href="https://github.com/timlzh/Ollama-Hack"
               rel="noopener noreferrer"
               target="_blank"
             >
