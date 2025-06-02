@@ -8,6 +8,7 @@ import {
   TableCell,
   SortDescriptor,
   Selection,
+  Key,
 } from "@heroui/table";
 import { Button } from "@heroui/button";
 import {
@@ -99,6 +100,11 @@ export interface DataTableProps<T> {
   topActionContent?: ReactNode;
   minPageSize?: number; // 最小页面大小
   maxPageSize?: number; // 最大页面大小
+  // 多选相关属性
+  selectionMode?: "none" | "single" | "multiple";
+  selectedKeys?: Selection;
+  onSelectionChange?: (keys: Set<Key>) => void;
+  selectionToolbarContent?: ReactNode;
 }
 
 // 通用DataTable组件
@@ -131,6 +137,11 @@ export const DataTable = <T extends { id?: number | string }>({
   topActionContent,
   minPageSize = 5,
   maxPageSize = 100,
+  // 多选相关属性
+  selectionMode = "none",
+  selectedKeys,
+  onSelectionChange,
+  selectionToolbarContent,
 }: DataTableProps<T>) => {
   // 获取表头列
   const headerColumns = React.useMemo(() => {
@@ -143,7 +154,7 @@ export const DataTable = <T extends { id?: number | string }>({
 
   // 每页行数
   const pageSizeOptions = [5, 10, 15, 30, 50];
-  const [selectedKeys, setSelectedKeys] = useState(
+  const [pageSizeSelectedKeys, setPageSizeSelectedKeys] = useState(
     new Set([selectedSize.toString()]),
   );
 
@@ -161,7 +172,7 @@ export const DataTable = <T extends { id?: number | string }>({
     }
 
     setSize?.(customPageSize);
-    setSelectedKeys(new Set([customPageSize.toString()]));
+    setPageSizeSelectedKeys(new Set([customPageSize.toString()]));
     setCustomPageSize(selectedSize);
     onPageChange(1);
   };
@@ -176,16 +187,16 @@ export const DataTable = <T extends { id?: number | string }>({
   // 底部内容区域
   const bottomContent = React.useMemo(() => {
     return (
-      pages > 1 && (
-        <div className="py-2 px-2 flex justify-between items-center flex-col gap-3">
+      <div className="py-2 px-2 flex justify-between items-center flex-col gap-3">
+        {pages > 1 && (
           <Pagination
             currentPage={page}
             showJumper={true}
             totalPages={pages}
             onPageChange={onPageChange}
           />
-        </div>
-      )
+        )}
+      </div>
     );
   }, [
     pages,
@@ -264,19 +275,23 @@ export const DataTable = <T extends { id?: number | string }>({
             {setSize && (
               <Dropdown>
                 <DropdownTrigger>
-                  <Button
+                  {/* <Button
                     className="text-default-400 text-small"
                     endContent={<ChevronDownIcon className="text-small" />}
                     variant="light"
                   >
                     每页行数: {selectedSize}
-                  </Button>
+                  </Button> */}
+                  <div className="flex items-center gap-1 text-default-400 text-small ml-2 cursor-pointer">
+                    <span>每页行数: {selectedSize}</span>
+                    <ChevronDownIcon />
+                  </div>
                 </DropdownTrigger>
                 <DropdownMenu
                   disallowEmptySelection
                   aria-label="每页行数"
                   closeOnSelect={true}
-                  selectedKeys={selectedKeys}
+                  selectedKeys={pageSizeSelectedKeys}
                   selectionMode="single"
                   onSelectionChange={(e) => {
                     const key = e.currentKey;
@@ -284,7 +299,7 @@ export const DataTable = <T extends { id?: number | string }>({
                     // 不再需要处理"custom"选项，因为已经整合到下拉菜单中
                     if (key && key !== "custom") {
                       setSize(Number(key));
-                      setSelectedKeys(new Set([key]));
+                      setPageSizeSelectedKeys(new Set([key]));
                       onPageChange(1);
                     }
                   }}
@@ -356,6 +371,16 @@ export const DataTable = <T extends { id?: number | string }>({
             </span>
           </div>
         )}
+        {selectionMode === "multiple" &&
+          selectedKeys &&
+          selectedKeys.size > 0 && (
+            <div className="w-full flex justify-between items-center">
+              <span className="text-default-400 text-small ml-2">
+                已选择 {selectedKeys.size} 项
+              </span>
+              {selectionToolbarContent}
+            </div>
+          )}
       </div>
     );
   }, [
@@ -368,6 +393,9 @@ export const DataTable = <T extends { id?: number | string }>({
     setVisibleColumns,
     addButtonProps,
     autoSearchDelay,
+    selectionMode,
+    selectedKeys,
+    selectionToolbarContent,
   ]);
 
   // 渲染表格
@@ -381,9 +409,18 @@ export const DataTable = <T extends { id?: number | string }>({
       //   wrapper: "max-h-[600px]",
       // }}
       removeWrapper={removeWrapper}
+      selectedKeys={selectedKeys}
+      selectionMode={selectionMode}
       sortDescriptor={sortDescriptor}
       topContent={topContent}
       topContentPlacement="outside"
+      onSelectionChange={(selection) => {
+        if (selection === "all") {
+          onSelectionChange?.(new Set(data.map((item) => item.id?.toString())));
+        } else {
+          onSelectionChange?.(selection);
+        }
+      }}
       onSortChange={onSortChange}
     >
       <TableHeader columns={headerColumns}>

@@ -27,7 +27,7 @@ async def _get_endpoints(
 
 
 @endpoint_user_router.get(
-    "/{endpoint_id}",
+    "/{endpoint_id:int}",
     response_model=EndpointWithAIModels,
     description="Get an endpoint by ID with recent performance tests and associated AI models",
     response_description="The endpoint with recent performance tests and paginated AI models",

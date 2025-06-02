@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { addToast } from "@heroui/toast";
-import { Selection } from "@heroui/table";
+import { Key, Selection } from "@heroui/table";
+import { Button } from "@heroui/button";
 
 import EndpointDetailDrawer from "@/components/endpoints/DetailDrawer";
 import CreateEndpointModal from "@/components/endpoints/CreateModal";
@@ -22,6 +23,7 @@ import {
 import DashboardLayout from "@/layouts/Main";
 import ErrorDisplay from "@/components/ErrorDisplay";
 import { useDialog } from "@/contexts/DialogContext";
+import { DeleteIcon, TestIcon } from "@/components/icons";
 
 // 端点列表页
 const EndpointListPage = () => {
@@ -67,6 +69,11 @@ const EndpointListPage = () => {
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(
     null,
+  );
+
+  // 多选状态
+  const [selectedEndpointIds, setSelectedEndpointIds] = useState<Selection>(
+    new Set([]),
   );
 
   // 新增状态变量
@@ -149,6 +156,95 @@ const EndpointListPage = () => {
     setPage(newPage);
   };
 
+  // 处理选择变化
+  const handleSelectionChange = (keys: Set<Key>) => {
+    setSelectedEndpointIds(keys);
+  };
+
+  // 处理批量测试端点
+  const handleBatchTestEndpoints = () => {
+    if (!selectedEndpointIds || selectedEndpointIds.size === 0) return;
+
+    const endpointIds = Array.from(selectedEndpointIds).map(Number);
+
+    confirm(
+      `确定要测试选定的 ${endpointIds.length} 个端点吗？`,
+      async () => {
+        try {
+          const result = await endpointApi.batchTestEndpoints({
+            endpoint_ids: endpointIds,
+          });
+
+          // 添加到测试中的端点列表
+          setTestingEndpointIds((prev) => {
+            const newTestingIds = new Set([...prev]);
+
+            endpointIds.forEach((id) => {
+              if (!prev.includes(id)) {
+                newTestingIds.add(id);
+              }
+            });
+
+            return Array.from(newTestingIds);
+          });
+
+          addToast({
+            title: "批量测试已触发",
+            description: `成功: ${result.success_count}, 失败: ${result.failed_count}`,
+            color: "primary",
+          });
+
+          // 清除选择
+          setSelectedEndpointIds(new Set([]));
+        } catch (err) {
+          addToast({
+            title: "批量测试失败",
+            description: (err as Error).message || "请重试",
+            color: "danger",
+          });
+        }
+      },
+      "确认批量测试端点",
+    );
+  };
+
+  // 处理批量删除端点
+  const handleBatchDeleteEndpoints = () => {
+    if (!selectedEndpointIds || selectedEndpointIds.size === 0) return;
+
+    const endpointIds = Array.from(selectedEndpointIds).map(Number);
+
+    confirm(
+      `确定要删除选定的 ${endpointIds.length} 个端点吗？此操作不可撤销。`,
+      async () => {
+        try {
+          const result = await endpointApi.batchDeleteEndpoints({
+            endpoint_ids: endpointIds,
+          });
+
+          addToast({
+            title: "批量删除成功",
+            description: `成功: ${result.success_count}, 失败: ${result.failed_count}`,
+            color: "success",
+          });
+
+          // 清除选择
+          setSelectedEndpointIds(new Set([]));
+
+          // 刷新列表
+          refetch();
+        } catch (err) {
+          addToast({
+            title: "批量删除失败",
+            description: (err as Error).message || "请重试",
+            color: "danger",
+          });
+        }
+      },
+      "确认批量删除端点",
+    );
+  };
+
   // 处理删除端点
   const handleDeleteEndpoint = async (id: number) => {
     confirm("确定要删除这个端点吗？此操作不可撤销。", async () => {
@@ -203,6 +299,34 @@ const EndpointListPage = () => {
       "确认测试端点",
     );
   };
+
+  // 创建选择工具栏内容
+  const selectionToolbarContent = useMemo(() => {
+    if (!selectedEndpointIds || selectedEndpointIds.size === 0) return null;
+
+    return (
+      <div className="flex gap-2">
+        <Button
+          color="primary"
+          size="sm"
+          startContent={<TestIcon />}
+          variant="flat"
+          onPress={handleBatchTestEndpoints}
+        >
+          批量测试
+        </Button>
+        <Button
+          color="danger"
+          size="sm"
+          startContent={<DeleteIcon />}
+          variant="flat"
+          onPress={handleBatchDeleteEndpoints}
+        >
+          批量删除
+        </Button>
+      </div>
+    );
+  }, [selectedEndpointIds]);
 
   // 添加轮询逻辑
   useEffect(() => {
@@ -316,6 +440,9 @@ const EndpointListPage = () => {
           page={page}
           pageSize={pageSize}
           searchTerm={searchTerm}
+          selectedKeys={selectedEndpointIds}
+          selectionMode="multiple"
+          selectionToolbarContent={selectionToolbarContent}
           setOrder={setOrder}
           setOrderBy={setOrderBy}
           setPageSize={setPageSize}
@@ -334,6 +461,7 @@ const EndpointListPage = () => {
           onOpenEndpointDetail={openEndpointDetail}
           onPageChange={handlePageChange}
           onSearch={handleSearch}
+          onSelectionChange={handleSelectionChange}
           onTestEndpoint={handleTestEndpoint}
         />
       )}

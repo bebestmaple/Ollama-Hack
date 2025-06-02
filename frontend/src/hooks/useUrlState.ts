@@ -31,9 +31,7 @@ export function useUrlState<T>(
     if (paramValue) {
       try {
         return deserialize(paramValue);
-      } catch (e) {
-        console.error(`Failed to deserialize param "${paramName}":`, e);
-
+      } catch {
         return initialState;
       }
     }
@@ -69,8 +67,8 @@ export function useUrlState<T>(
             },
             { replace: replaceState },
           );
-        } catch (e) {
-          console.error(`Failed to serialize state for "${paramName}":`, e);
+        } catch {
+          // 忽略错误
         }
 
         return nextState;
@@ -88,8 +86,8 @@ export function useUrlState<T>(
         const parsedValue = deserialize(paramValue);
 
         setState(parsedValue);
-      } catch (e) {
-        console.error(`Failed to deserialize param "${paramName}":`, e);
+      } catch {
+        // 忽略错误
       }
     } else if (searchParams.toString() !== "") {
       // 只有当存在其他参数且当前参数不存在时，才重置为初始值

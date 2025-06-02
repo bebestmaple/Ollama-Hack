@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi_pagination import Page, Params
 from pydantic import BaseModel, field_validator
@@ -123,6 +123,23 @@ class TaskCreate(BaseModel):
 
 class TaskWithEndpoint(TaskInfo):
     endpoint: EndpointInfo
+
+    class Config:
+        from_attributes = True
+
+
+class EndpointBatchOperation(BaseModel):
+    """Request model for batch operations on endpoints."""
+
+    endpoint_ids: List[int]
+
+
+class BatchOperationResult(BaseModel):
+    """Response model for batch operations."""
+
+    success_count: int
+    failed_count: int
+    failed_ids: Dict[str, Any] = {}  # Map of failed IDs to error messages
 
     class Config:
         from_attributes = True
