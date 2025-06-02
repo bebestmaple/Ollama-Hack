@@ -185,22 +185,16 @@ async def validate_api_key(
 
 async def log_api_key_usage(
     session: DBSessionDep,
-    api_key: ApiKeyDB,
+    api_key_id: int,
     endpoint: str,
     method: str,
     model: Optional[str],
     status_code: int,
 ) -> Optional[ApiKeyUsageLogDB]:
     """Log API key usage"""
-    await session.refresh(api_key)
-    # Ensure api_key.id is not None
-    if api_key.id is None:
-        logger.warning("Attempted to log usage for API key with null ID")
-        return None
-
     # Create usage log
     usage_log = ApiKeyUsageLogDB(
-        api_key_id=api_key.id,
+        api_key_id=api_key_id,
         endpoint=endpoint,
         method=method,
         model=model,
