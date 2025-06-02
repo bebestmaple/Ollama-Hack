@@ -105,10 +105,12 @@ async def send_request_to_endpoints(
     endpoints: list[EndpointDB],
 ):
     # Create a function to log the API key usage after the request completes
-    async def log_usage(status_code):
+    async def log_usage(session: DBSessionDep, status_code):
+        if api_key.id is None:
+            return
         await log_api_key_usage(
             session,
-            api_key,
+            api_key.id,
             request_info.full_path,
             request_info.method,
             request_info.model_name,
@@ -117,7 +119,7 @@ async def send_request_to_endpoints(
 
     if request_info.stream:
 
-        async def stream_response():
+        async def stream_response(session: DBSessionDep):
             error = HTTPException(500, "Fail to connect to endpoint")
             for endpoint in endpoints:
                 logger.info(f"Sending request to endpoint: {endpoint.url}")
@@ -139,23 +141,24 @@ async def send_request_to_endpoints(
                             yield response
                     # Log successful request
                     logger.info(f"Request to endpoint {endpoint.url} completed")
-                    await log_usage(200)
+                    await log_usage(session, 200)
                     return
                 except Exception as e:
+                    logger.error(f"Error: {e}")
                     error = e
 
             try:
                 raise error
             except ClientResponseError as e:
                 logger.error(f"Error: {e.status} {e.message}")
-                await log_usage(e.status)
+                await log_usage(session, e.status)
                 yield f"Error: {e.status} {e.message}"
             except Exception as e:
                 logger.error(f"Error: {e}")
-                await log_usage(500)
+                await log_usage(session, 500)
                 yield "Error: Failed to connect to the endpoint"
 
-        return StreamingResponse(stream_response(), media_type="text/event-stream")
+        return StreamingResponse(stream_response(session), media_type="text/event-stream")
     else:
         error = HTTPException(500, "Fail to connect to endpoint")
         for endpoint in endpoints:
@@ -170,7 +173,7 @@ async def send_request_to_endpoints(
                         params=request_info.params,
                     )
                     logger.info(f"Request to endpoint {endpoint.url} completed")
-                    await log_usage(200)
+                    await log_usage(session, 200)
                     return PlainTextResponse(response)
             except Exception as e:
                 error = e
@@ -178,11 +181,11 @@ async def send_request_to_endpoints(
             raise error
         except ClientResponseError as e:
             logger.error(f"Error: {e.status} {e.message}")
-            await log_usage(e.status)
+            await log_usage(session, e.status)
             raise HTTPException(status_code=e.status, detail=e.message) from e
         except Exception as e:
             logger.error(f"Error: {e}")
-            await log_usage(500)
+            await log_usage(session, 500)
             raise HTTPException(
                 status_code=500, detail="Error: Failed to connect to the endpoint"
             ) from e
@@ -221,6 +224,13 @@ async def request_forwarding(
     # Get and validate API key
     api_key, user, plan = await get_api_key_from_request(request_raw, session)
 
+    await session.refresh(api_key)
+    await session.refresh(user)
+    await session.refresh(plan)
+
+    if api_key.id is None:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     if not user.is_admin:
         # Check rate limits
         await check_rate_limits(session, api_key, plan)
@@ -250,7 +260,7 @@ async def request_forwarding(
     except HTTPException as e:
         await log_api_key_usage(
             session,
-            api_key,
+            api_key.id,
             full_path,
             request_raw.method,
             request_info.model_name,
@@ -260,7 +270,7 @@ async def request_forwarding(
     except Exception as e:
         await log_api_key_usage(
             session,
-            api_key,
+            api_key.id,
             full_path,
             request_raw.method,
             request_info.model_name,
