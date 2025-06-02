@@ -1,7 +1,9 @@
 import apiClient, { buildQueryString } from "./client";
 
 import {
+  BatchOperationResult,
   EndpointBatchCreate,
+  EndpointBatchOperation,
   EndpointCreate,
   EndpointInfo,
   EndpointTaskInfo,
@@ -61,6 +63,21 @@ export const endpointApi = {
   // 批量创建端点
   batchCreateEndpoints: (data: EndpointBatchCreate) => {
     return apiClient.post<EndpointInfo[]>("/api/v2/endpoint/batch", data);
+  },
+
+  // 批量测试端点
+  batchTestEndpoints: (data: EndpointBatchOperation) => {
+    return apiClient.post<BatchOperationResult>(
+      "/api/v2/endpoint/batch-test",
+      data,
+    );
+  },
+
+  // 批量删除端点
+  batchDeleteEndpoints: (data: EndpointBatchOperation) => {
+    return apiClient.delete<BatchOperationResult>("/api/v2/endpoint/batch", {
+      data,
+    });
   },
 
   // 手动触发端点测试

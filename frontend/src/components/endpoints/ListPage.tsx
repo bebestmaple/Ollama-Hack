@@ -1,13 +1,18 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { addToast } from "@heroui/toast";
-import { Selection } from "@heroui/table";
+import { Key, Selection } from "@heroui/table";
+import { Button } from "@heroui/button";
 
 import EndpointDetailDrawer from "@/components/endpoints/DetailDrawer";
 import CreateEndpointModal from "@/components/endpoints/CreateModal";
 import EndpointTable from "@/components/endpoints/Table";
 import EndpointEditModal from "@/components/endpoints/EditModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCustomQuery } from "@/hooks";
+import {
+  useCustomQuery,
+  usePaginationUrlState,
+  PaginationValidationConfig,
+} from "@/hooks";
 import { endpointApi } from "@/api";
 import {
   EndpointWithAIModelCount,
@@ -18,20 +23,57 @@ import {
 import DashboardLayout from "@/layouts/Main";
 import ErrorDisplay from "@/components/ErrorDisplay";
 import { useDialog } from "@/contexts/DialogContext";
+import { DeleteIcon, TestIcon } from "@/components/icons";
 
 // 端点列表页
 const EndpointListPage = () => {
   const { isAdmin } = useAuth();
   const { confirm } = useDialog();
-  const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [orderBy, setOrderBy] = useState<string | undefined>("status");
-  const [order, setOrder] = useState<SortOrder | undefined>(SortOrder.ASC);
+
+  // 验证配置
+  const [validationConfig, setValidationConfig] =
+    useState<PaginationValidationConfig>({
+      page: { min: 1 },
+      pageSize: { min: 5, max: 100 },
+      totalPages: 1,
+      orderBy: {
+        allowedFields: ["id", "name", "status", "created_at"],
+        defaultField: "id",
+      },
+    });
+
+  // 使用URL参数管理状态，替代多个单独的useState
+  const {
+    page,
+    pageSize,
+    search: searchTerm,
+    orderBy,
+    order,
+    setPage,
+    setPageSize,
+    setSearch: setSearchTerm,
+    setOrderBy,
+    setOrder,
+  } = usePaginationUrlState(
+    {
+      page: 1,
+      pageSize: 10,
+      search: "",
+      orderBy: "status",
+      order: SortOrder.ASC,
+    },
+    validationConfig,
+  );
 
   // 详情抽屉状态
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(
     null,
+  );
+
+  // 多选状态
+  const [selectedEndpointIds, setSelectedEndpointIds] = useState<Selection>(
+    new Set([]),
   );
 
   // 新增状态变量
@@ -53,9 +95,6 @@ const EndpointListPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingEndpoint, setEditingEndpoint] =
     useState<EndpointWithAIModelCount | null>(null);
-
-  // 处理每页行数变化
-  const [pageSize, setPageSize] = useState(10);
 
   // 测试状态管理
   const [testingEndpointIds, setTestingEndpointIds] = useState<number[]>([]);
@@ -79,6 +118,16 @@ const EndpointListPage = () => {
       }),
     { staleTime: 30000 },
   );
+
+  // 当总页数变化时，更新验证配置
+  useEffect(() => {
+    if (endpoints?.pages) {
+      setValidationConfig((prev) => ({
+        ...prev,
+        totalPages: endpoints.pages,
+      }));
+    }
+  }, [endpoints?.pages]);
 
   useEffect(() => {
     const running_endpoint_ids = endpoints?.items
@@ -105,6 +154,95 @@ const EndpointListPage = () => {
   // 处理页码变化
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
+  };
+
+  // 处理选择变化
+  const handleSelectionChange = (keys: Set<Key>) => {
+    setSelectedEndpointIds(keys);
+  };
+
+  // 处理批量测试端点
+  const handleBatchTestEndpoints = () => {
+    if (!selectedEndpointIds || selectedEndpointIds.size === 0) return;
+
+    const endpointIds = Array.from(selectedEndpointIds).map(Number);
+
+    confirm(
+      `确定要测试选定的 ${endpointIds.length} 个端点吗？`,
+      async () => {
+        try {
+          const result = await endpointApi.batchTestEndpoints({
+            endpoint_ids: endpointIds,
+          });
+
+          // 添加到测试中的端点列表
+          setTestingEndpointIds((prev) => {
+            const newTestingIds = new Set([...prev]);
+
+            endpointIds.forEach((id) => {
+              if (!prev.includes(id)) {
+                newTestingIds.add(id);
+              }
+            });
+
+            return Array.from(newTestingIds);
+          });
+
+          addToast({
+            title: "批量测试已触发",
+            description: `成功: ${result.success_count}, 失败: ${result.failed_count}`,
+            color: "primary",
+          });
+
+          // 清除选择
+          setSelectedEndpointIds(new Set([]));
+        } catch (err) {
+          addToast({
+            title: "批量测试失败",
+            description: (err as Error).message || "请重试",
+            color: "danger",
+          });
+        }
+      },
+      "确认批量测试端点",
+    );
+  };
+
+  // 处理批量删除端点
+  const handleBatchDeleteEndpoints = () => {
+    if (!selectedEndpointIds || selectedEndpointIds.size === 0) return;
+
+    const endpointIds = Array.from(selectedEndpointIds).map(Number);
+
+    confirm(
+      `确定要删除选定的 ${endpointIds.length} 个端点吗？此操作不可撤销。`,
+      async () => {
+        try {
+          const result = await endpointApi.batchDeleteEndpoints({
+            endpoint_ids: endpointIds,
+          });
+
+          addToast({
+            title: "批量删除成功",
+            description: `成功: ${result.success_count}, 失败: ${result.failed_count}`,
+            color: "success",
+          });
+
+          // 清除选择
+          setSelectedEndpointIds(new Set([]));
+
+          // 刷新列表
+          refetch();
+        } catch (err) {
+          addToast({
+            title: "批量删除失败",
+            description: (err as Error).message || "请重试",
+            color: "danger",
+          });
+        }
+      },
+      "确认批量删除端点",
+    );
   };
 
   // 处理删除端点
@@ -161,6 +299,34 @@ const EndpointListPage = () => {
       "确认测试端点",
     );
   };
+
+  // 创建选择工具栏内容
+  const selectionToolbarContent = useMemo(() => {
+    if (!selectedEndpointIds || selectedEndpointIds.size === 0) return null;
+
+    return (
+      <div className="flex gap-2">
+        <Button
+          color="primary"
+          size="sm"
+          startContent={<TestIcon />}
+          variant="flat"
+          onPress={handleBatchTestEndpoints}
+        >
+          批量测试
+        </Button>
+        <Button
+          color="danger"
+          size="sm"
+          startContent={<DeleteIcon />}
+          variant="flat"
+          onPress={handleBatchDeleteEndpoints}
+        >
+          批量删除
+        </Button>
+      </div>
+    );
+  }, [selectedEndpointIds]);
 
   // 添加轮询逻辑
   useEffect(() => {
@@ -274,6 +440,9 @@ const EndpointListPage = () => {
           page={page}
           pageSize={pageSize}
           searchTerm={searchTerm}
+          selectedKeys={selectedEndpointIds}
+          selectionMode="multiple"
+          selectionToolbarContent={selectionToolbarContent}
           setOrder={setOrder}
           setOrderBy={setOrderBy}
           setPageSize={setPageSize}
@@ -292,6 +461,7 @@ const EndpointListPage = () => {
           onOpenEndpointDetail={openEndpointDetail}
           onPageChange={handlePageChange}
           onSearch={handleSearch}
+          onSelectionChange={handleSelectionChange}
           onTestEndpoint={handleTestEndpoint}
         />
       )}

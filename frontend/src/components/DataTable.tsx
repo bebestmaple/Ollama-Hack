@@ -1,4 +1,4 @@
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useState, KeyboardEvent } from "react";
 import {
   Table,
   TableHeader,
@@ -8,6 +8,7 @@ import {
   TableCell,
   SortDescriptor,
   Selection,
+  Key,
 } from "@heroui/table";
 import { Button } from "@heroui/button";
 import {
@@ -15,14 +16,16 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  DropdownSection,
 } from "@heroui/dropdown";
-import { Pagination } from "@heroui/pagination";
 import { Tooltip } from "@heroui/tooltip";
+import { NumberInput } from "@heroui/number-input";
 
 import LoadingSpinner from "./LoadingSpinner";
 import ErrorDisplay from "./ErrorDisplay";
 import SearchForm from "./SearchForm";
 import { PlusIcon } from "./icons";
+import Pagination from "./Pagination";
 
 // ChevronDownIcon组件
 const ChevronDownIcon = ({
@@ -95,6 +98,13 @@ export interface DataTableProps<T> {
   autoSearchDelay?: number;
   removeWrapper?: boolean;
   topActionContent?: ReactNode;
+  minPageSize?: number; // 最小页面大小
+  maxPageSize?: number; // 最大页面大小
+  // 多选相关属性
+  selectionMode?: "none" | "single" | "multiple";
+  selectedKeys?: Selection;
+  onSelectionChange?: (keys: Set<Key>) => void;
+  selectionToolbarContent?: ReactNode;
 }
 
 // 通用DataTable组件
@@ -125,6 +135,13 @@ export const DataTable = <T extends { id?: number | string }>({
   autoSearchDelay = 0,
   removeWrapper = false,
   topActionContent,
+  minPageSize = 5,
+  maxPageSize = 100,
+  // 多选相关属性
+  selectionMode = "none",
+  selectedKeys,
+  onSelectionChange,
+  selectionToolbarContent,
 }: DataTableProps<T>) => {
   // 获取表头列
   const headerColumns = React.useMemo(() => {
@@ -136,59 +153,50 @@ export const DataTable = <T extends { id?: number | string }>({
   }, [visibleColumns, columns]);
 
   // 每页行数
-  const pageSizeOptions = [5, 10, 15];
-  const [selectedKeys, setSelectedKeys] = useState(
+  const pageSizeOptions = [5, 10, 15, 30, 50];
+  const [pageSizeSelectedKeys, setPageSizeSelectedKeys] = useState(
     new Set([selectedSize.toString()]),
   );
+
+  // 自定义页面大小
+  const [customPageSize, setCustomPageSize] = useState<number | null>(null);
+
+  // 处理自定义页面大小应用
+  const applyCustomPageSize = () => {
+    if (
+      customPageSize === null ||
+      customPageSize < minPageSize ||
+      customPageSize > maxPageSize
+    ) {
+      return;
+    }
+
+    setSize?.(customPageSize);
+    setPageSizeSelectedKeys(new Set([customPageSize.toString()]));
+    setCustomPageSize(selectedSize);
+    onPageChange(1);
+  };
+
+  // 处理回车键应用自定义页面大小
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      applyCustomPageSize();
+    }
+  };
 
   // 底部内容区域
   const bottomContent = React.useMemo(() => {
     return (
-      pages > 1 && (
-        <div className="py-2 px-2 flex justify-between items-center flex-wrap gap-2">
-          {setSize && (
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button
-                  className="text-default-400 text-small"
-                  endContent={<ChevronDownIcon className="text-small" />}
-                  variant="light"
-                >
-                  每页行数: {selectedSize}
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="每页行数"
-                closeOnSelect={true}
-                selectedKeys={selectedKeys}
-                selectionMode="single"
-                onSelectionChange={(e) => {
-                  setSize(Number(e.currentKey));
-                  setSelectedKeys(new Set([e.currentKey]));
-                  setPage(1);
-                }}
-              >
-                {pageSizeOptions.map((size) => (
-                  <DropdownItem key={size}>{size}</DropdownItem>
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          )}
+      <div className="py-2 px-2 flex justify-between items-center flex-col gap-3">
+        {pages > 1 && (
           <Pagination
-            isCompact
-            showControls
-            showShadow
-            color="primary"
-            page={page}
-            total={pages}
-            onChange={onPageChange}
+            currentPage={page}
+            showJumper={true}
+            totalPages={pages}
+            onPageChange={onPageChange}
           />
-          <span className="text-default-400 text-small">
-            共 {total || data.length} 条记录
-          </span>
-        </div>
-      )
+        )}
+      </div>
     );
   }, [
     pages,
@@ -199,61 +207,180 @@ export const DataTable = <T extends { id?: number | string }>({
     total,
     data.length,
     pageSize,
+    customPageSize,
+    minPageSize,
+    maxPageSize,
   ]);
 
   // 顶部内容区域
   const topContent = React.useMemo(() => {
     return (
-      <div className="flex justify-between gap-3 items-end">
-        {setSearchTerm && onSearch && (
-          <SearchForm
-            autoSearchDelay={autoSearchDelay}
-            handleSearch={onSearch}
-            placeholder={searchPlaceholder}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-          />
-        )}
-        <div className="flex gap-3">
-          {setVisibleColumns && (
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button
-                  endContent={<ChevronDownIcon className="text-small" />}
-                  variant="flat"
+      <div className="flex justify-between flex-col gap-3 w-full">
+        <div className="flex justify-between gap-3 items-end w-full">
+          {setSearchTerm && onSearch && (
+            <SearchForm
+              autoSearchDelay={autoSearchDelay}
+              handleSearch={onSearch}
+              placeholder={searchPlaceholder}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+            />
+          )}
+          <div className="flex gap-3">
+            {setVisibleColumns && (
+              <Dropdown>
+                <DropdownTrigger className="hidden sm:flex">
+                  <Button
+                    endContent={<ChevronDownIcon className="text-small" />}
+                    variant="flat"
+                  >
+                    选择列
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu
+                  disallowEmptySelection
+                  aria-label="显示的列"
+                  closeOnSelect={false}
+                  selectedKeys={visibleColumns}
+                  selectionMode="multiple"
+                  onSelectionChange={setVisibleColumns}
                 >
-                  选择列
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="显示的列"
-                closeOnSelect={false}
-                selectedKeys={visibleColumns}
-                selectionMode="multiple"
-                onSelectionChange={setVisibleColumns}
-              >
-                {columns.map((column) => (
-                  <DropdownItem key={column.key} className="capitalize">
-                    {column.label}
-                  </DropdownItem>
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          )}
-          {topActionContent}
-          {addButtonProps && (
-            <Tooltip color="primary" content={addButtonProps.tooltip || "添加"}>
-              <Button
+                  {columns.map((column) => (
+                    <DropdownItem key={column.key} className="capitalize">
+                      {column.label}
+                    </DropdownItem>
+                  ))}
+                </DropdownMenu>
+              </Dropdown>
+            )}
+            {topActionContent}
+            {addButtonProps && (
+              <Tooltip
                 color="primary"
-                isIconOnly={addButtonProps.isIconOnly || false}
-                onPress={addButtonProps.onClick}
+                content={addButtonProps.tooltip || "添加"}
               >
-                {addButtonProps.label || <PlusIcon />}
-              </Button>
-            </Tooltip>
-          )}
+                <Button
+                  color="primary"
+                  isIconOnly={addButtonProps.isIconOnly || false}
+                  onPress={addButtonProps.onClick}
+                >
+                  {addButtonProps.label || <PlusIcon />}
+                </Button>
+              </Tooltip>
+            )}
+          </div>
         </div>
+        {pages > 1 && (
+          <div className="flex justify-between items-center flex-wrap gap-2 w-full">
+            {setSize && (
+              <Dropdown>
+                <DropdownTrigger>
+                  {/* <Button
+                    className="text-default-400 text-small"
+                    endContent={<ChevronDownIcon className="text-small" />}
+                    variant="light"
+                  >
+                    每页行数: {selectedSize}
+                  </Button> */}
+                  <div className="flex items-center gap-1 text-default-400 text-small ml-2 cursor-pointer">
+                    <span>每页行数: {selectedSize}</span>
+                    <ChevronDownIcon />
+                  </div>
+                </DropdownTrigger>
+                <DropdownMenu
+                  disallowEmptySelection
+                  aria-label="每页行数"
+                  closeOnSelect={true}
+                  selectedKeys={pageSizeSelectedKeys}
+                  selectionMode="single"
+                  onSelectionChange={(e) => {
+                    const key = e.currentKey;
+
+                    // 不再需要处理"custom"选项，因为已经整合到下拉菜单中
+                    if (key && key !== "custom") {
+                      setSize(Number(key));
+                      setPageSizeSelectedKeys(new Set([key]));
+                      onPageChange(1);
+                    }
+                  }}
+                >
+                  <DropdownSection showDivider title="预设大小">
+                    {pageSizeOptions.map((size) => (
+                      <DropdownItem key={size}>{size}</DropdownItem>
+                    ))}
+                  </DropdownSection>
+                  <DropdownSection title="自定义">
+                    <DropdownItem
+                      isReadOnly
+                      endContent={
+                        <Button
+                          color="primary"
+                          size="sm"
+                          variant="flat"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            applyCustomPageSize();
+                          }}
+                        >
+                          应用
+                        </Button>
+                      }
+                      startContent={
+                        <NumberInput
+                          hideStepper
+                          aria-label="自定义页面大小"
+                          className="w-20"
+                          classNames={{
+                            mainWrapper: "h-8",
+                            input: "h-8",
+                            inputWrapper: "h-8 min-h-8",
+                          }}
+                          maxValue={maxPageSize}
+                          minValue={minPageSize}
+                          placeholder={`${minPageSize}-${maxPageSize}`}
+                          radius="sm"
+                          size="sm"
+                          validate={(value) => {
+                            if (value < minPageSize) {
+                              return `页面大小不能小于 ${minPageSize}`;
+                            }
+
+                            if (value > maxPageSize) {
+                              return `页面大小不能大于 ${maxPageSize}`;
+                            }
+
+                            return null;
+                          }}
+                          value={customPageSize}
+                          onKeyDown={handleKeyDown}
+                          onValueChange={(value) => {
+                            setCustomPageSize(value);
+                          }}
+                        />
+                      }
+                      textValue="自定义页面大小"
+                    />
+                  </DropdownSection>
+                </DropdownMenu>
+              </Dropdown>
+            )}
+
+            <span className="text-default-400 text-small mr-2">
+              共 {total || data.length} 条记录
+            </span>
+          </div>
+        )}
+        {selectionMode === "multiple" &&
+          selectedKeys &&
+          selectedKeys.size > 0 && (
+            <div className="w-full flex justify-between items-center">
+              <span className="text-default-400 text-small ml-2">
+                已选择 {selectedKeys.size} 项
+              </span>
+              {selectionToolbarContent}
+            </div>
+          )}
       </div>
     );
   }, [
@@ -266,6 +393,9 @@ export const DataTable = <T extends { id?: number | string }>({
     setVisibleColumns,
     addButtonProps,
     autoSearchDelay,
+    selectionMode,
+    selectedKeys,
+    selectionToolbarContent,
   ]);
 
   // 渲染表格
@@ -279,9 +409,18 @@ export const DataTable = <T extends { id?: number | string }>({
       //   wrapper: "max-h-[600px]",
       // }}
       removeWrapper={removeWrapper}
+      selectedKeys={selectedKeys}
+      selectionMode={selectionMode}
       sortDescriptor={sortDescriptor}
       topContent={topContent}
       topContentPlacement="outside"
+      onSelectionChange={(selection) => {
+        if (selection === "all") {
+          onSelectionChange?.(new Set(data.map((item) => item.id?.toString())));
+        } else {
+          onSelectionChange?.(selection);
+        }
+      }}
       onSortChange={onSortChange}
     >
       <TableHeader columns={headerColumns}>

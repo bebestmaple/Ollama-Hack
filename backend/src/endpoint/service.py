@@ -3,9 +3,8 @@ from typing import Optional
 
 from fastapi import BackgroundTasks, Depends, HTTPException, status
 from fastapi_pagination import Page, Params, set_page
-from fastapi_pagination.ext.sqlmodel import apaginate
-from sqlalchemy import func
-from sqlalchemy.dialects.mysql import insert
+from fastapi_pagination.ext.sqlmodel import paginate as apaginate
+from sqlalchemy import func, insert
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, or_, select
 
@@ -26,8 +25,10 @@ from .models import (
     EndpointTestTask,
 )
 from .schemas import (
+    BatchOperationResult,
     EndpointAIModelInfo,
     EndpointBatchCreate,
+    EndpointBatchOperation,
     EndpointCreateWithName,
     EndpointFilterParams,
     EndpointInfo,
@@ -685,3 +686,99 @@ async def manual_trigger_endpoint_test(
     # Create a task that will run immediately
     scheduled_at = now() + timedelta(seconds=2)
     return await create_test_task(session, endpoint_id, scheduled_at)
+
+
+async def batch_test_endpoints(
+    session: DBSessionDep,
+    background_task: BackgroundTasks,
+    batch_operation: EndpointBatchOperation,
+) -> BatchOperationResult:
+    """
+    Batch test multiple endpoints.
+
+    Args:
+        session: Database session
+        background_task: FastAPI background tasks
+        batch_operation: The batch operation parameters
+
+    Returns:
+        BatchOperationResult with success and failure counts
+    """
+    success_count = 0
+    failed_ids = {}
+
+    # 创建一个后台任务来执行所有测试
+    async def run_tests():
+        from .scheduler import get_scheduler
+
+        scheduler = get_scheduler()
+
+        for endpoint_id in batch_operation.endpoint_ids:
+            try:
+                # 创建2秒后执行的测试任务
+                scheduled_at = now() + timedelta(seconds=2)
+                await scheduler.schedule_endpoint_test(endpoint_id, scheduled_at)
+                logger.info(f"Scheduled test for endpoint {endpoint_id}")
+            except Exception as e:
+                logger.error(f"Failed to schedule test for endpoint {endpoint_id}: {e}")
+
+    # 添加后台任务
+    background_task.add_task(run_tests)
+
+    # 统计成功和失败的数量
+    for endpoint_id in batch_operation.endpoint_ids:
+        try:
+            # 验证端点是否存在
+            await get_endpoint_by_id(session, endpoint_id)
+            success_count += 1
+        except Exception as e:
+            failed_ids[str(endpoint_id)] = str(e)
+
+    return BatchOperationResult(
+        success_count=success_count,
+        failed_count=len(batch_operation.endpoint_ids) - success_count,
+        failed_ids=failed_ids,
+    )
+
+
+async def batch_delete_endpoints(
+    session: DBSessionDep,
+    batch_operation: EndpointBatchOperation,
+) -> BatchOperationResult:
+    """
+    Batch delete multiple endpoints.
+
+    Args:
+        session: Database session
+        batch_operation: The batch operation parameters
+
+    Returns:
+        BatchOperationResult with success and failure counts
+    """
+    success_count = 0
+    failed_ids = {}
+
+    for endpoint_id in batch_operation.endpoint_ids:
+        try:
+            # 获取并删除端点
+            endpoint = await get_endpoint_by_id(session, endpoint_id)
+
+            # 确保加载关联数据以激活级联删除
+            await session.refresh(endpoint, ["ai_model_links", "performances"])
+
+            logger.info(f"Deleting endpoint {endpoint.id} ({endpoint.name}) with all its relations")
+
+            await session.delete(endpoint)
+            success_count += 1
+        except Exception as e:
+            logger.error(f"Failed to delete endpoint {endpoint_id}: {e}")
+            failed_ids[str(endpoint_id)] = str(e)
+
+    # 提交所有更改
+    await session.commit()
+
+    return BatchOperationResult(
+        success_count=success_count,
+        failed_count=len(batch_operation.endpoint_ids) - success_count,
+        failed_ids=failed_ids,
+    )

@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@heroui/button";
-import { SortDescriptor, Selection } from "@heroui/table";
+import { SortDescriptor, Selection, Key } from "@heroui/table";
 import { Tooltip } from "@heroui/tooltip";
 import { Spinner } from "@heroui/spinner";
 
@@ -44,6 +44,11 @@ interface EndpointTableProps {
   isAdmin: boolean;
   totalPages?: number;
   totalItems?: number;
+  testingEndpointIds: number[];
+  selectionMode?: "none" | "single" | "multiple";
+  selectedKeys?: Selection;
+  onSelectionChange?: (keys: Set<Key>) => void;
+  selectionToolbarContent?: React.ReactNode;
 }
 
 const EndpointTable: React.FC<EndpointTableProps> = ({
@@ -72,6 +77,10 @@ const EndpointTable: React.FC<EndpointTableProps> = ({
   totalPages,
   totalItems,
   testingEndpointIds,
+  selectionMode = "none",
+  selectedKeys,
+  onSelectionChange,
+  selectionToolbarContent,
 }) => {
   // 获取端点状态
   const getEndpointStatus = (
@@ -293,7 +302,10 @@ const EndpointTable: React.FC<EndpointTableProps> = ({
       renderCell={renderCell}
       searchPlaceholder="搜索端点..."
       searchTerm={searchTerm}
+      selectedKeys={selectedKeys}
       selectedSize={pageSize}
+      selectionMode={selectionMode}
+      selectionToolbarContent={selectionToolbarContent}
       setSearchTerm={setSearchTerm}
       setSize={setPageSize}
       setVisibleColumns={setVisibleColumns}
@@ -303,6 +315,7 @@ const EndpointTable: React.FC<EndpointTableProps> = ({
       visibleColumns={visibleColumns}
       onPageChange={onPageChange}
       onSearch={onSearch}
+      onSelectionChange={onSelectionChange}
       onSortChange={handleSort}
     />
   );

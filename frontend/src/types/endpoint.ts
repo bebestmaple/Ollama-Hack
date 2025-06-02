@@ -67,6 +67,21 @@ export interface EndpointBatchCreate {
   endpoints: EndpointCreate[];
 }
 
+// 批量操作端点请求
+export interface EndpointBatchOperation {
+  endpoint_ids: number[]; // 要操作的节点ID列表
+}
+
+// 批量操作结果响应
+export interface BatchOperationResult {
+  success_count: number; // 成功操作的节点数量
+  failed_count: number; // 失败的节点数量
+  failed_ids: {
+    // 失败的节点ID及原因
+    [key: string]: string;
+  };
+}
+
 // 端点任务信息
 export interface EndpointTaskInfo {
   id: number;
