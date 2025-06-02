@@ -1,20 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 
-import { useCustomQuery } from "@/hooks";
+import {
+  useCustomQuery,
+  usePaginationUrlState,
+  PaginationValidationConfig,
+} from "@/hooks";
 import { aiModelApi } from "@/api";
-import { AIModelInfoWithEndpointCount, PageResponse, SortOrder } from "@/types";
+import { AIModelInfoWithEndpointCount, PageResponse } from "@/types";
 import DashboardLayout from "@/layouts/Main";
 import ModelTable from "@/components/models/Table";
 import ModelDetailDrawer from "@/components/models/DetailDrawer";
 
 // 模型列表页面
 export const ModelListPage = () => {
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [orderBy, setOrderBy] = useState<string | undefined>();
-  const [order, setOrder] = useState<SortOrder | undefined>();
+  // 验证配置
+  const [validationConfig, setValidationConfig] =
+    useState<PaginationValidationConfig>({
+      page: { min: 1 },
+      pageSize: { min: 5, max: 100 },
+      totalPages: 1,
+      orderBy: {
+        allowedFields: ["id", "name", "created_at", "last_used_at"],
+        defaultField: "id",
+      },
+    });
+
+  // 使用URL参数管理状态，替代多个单独的useState
+  const {
+    page,
+    pageSize,
+    search: searchTerm,
+    orderBy,
+    order,
+    setPage,
+    setPageSize,
+    setSearch: setSearchTerm,
+    setOrderBy,
+    setOrder,
+  } = usePaginationUrlState(
+    {
+      page: 1,
+      pageSize: 10,
+      search: "",
+      orderBy: undefined,
+      order: undefined,
+    },
+    validationConfig,
+  );
 
   // 详情抽屉状态
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
@@ -38,6 +71,16 @@ export const ModelListPage = () => {
       }),
     { staleTime: 30000 },
   );
+
+  // 当总页数变化时，更新验证配置
+  useEffect(() => {
+    if (models?.pages) {
+      setValidationConfig((prev) => ({
+        ...prev,
+        totalPages: models.pages,
+      }));
+    }
+  }, [models?.pages]);
 
   // 处理搜索
   const handleSearch = (e: React.FormEvent) => {
@@ -96,12 +139,11 @@ export const ModelListPage = () => {
   );
 };
 
-// 路由组件
+// 模型路由入口
 const ModelsPage = () => {
   return (
     <Routes>
-      <Route element={<ModelListPage />} path="/" />
-      {/* <Route path="/:id" element={<ModelDetailPage />} /> */}
+      <Route index element={<ModelListPage />} />
     </Routes>
   );
 };

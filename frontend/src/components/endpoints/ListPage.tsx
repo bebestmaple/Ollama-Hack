@@ -7,7 +7,11 @@ import CreateEndpointModal from "@/components/endpoints/CreateModal";
 import EndpointTable from "@/components/endpoints/Table";
 import EndpointEditModal from "@/components/endpoints/EditModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCustomQuery } from "@/hooks";
+import {
+  useCustomQuery,
+  usePaginationUrlState,
+  PaginationValidationConfig,
+} from "@/hooks";
 import { endpointApi } from "@/api";
 import {
   EndpointWithAIModelCount,
@@ -23,10 +27,41 @@ import { useDialog } from "@/contexts/DialogContext";
 const EndpointListPage = () => {
   const { isAdmin } = useAuth();
   const { confirm } = useDialog();
-  const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [orderBy, setOrderBy] = useState<string | undefined>("status");
-  const [order, setOrder] = useState<SortOrder | undefined>(SortOrder.ASC);
+
+  // 验证配置
+  const [validationConfig, setValidationConfig] =
+    useState<PaginationValidationConfig>({
+      page: { min: 1 },
+      pageSize: { min: 5, max: 100 },
+      totalPages: 1,
+      orderBy: {
+        allowedFields: ["id", "name", "status", "created_at"],
+        defaultField: "id",
+      },
+    });
+
+  // 使用URL参数管理状态，替代多个单独的useState
+  const {
+    page,
+    pageSize,
+    search: searchTerm,
+    orderBy,
+    order,
+    setPage,
+    setPageSize,
+    setSearch: setSearchTerm,
+    setOrderBy,
+    setOrder,
+  } = usePaginationUrlState(
+    {
+      page: 1,
+      pageSize: 10,
+      search: "",
+      orderBy: "status",
+      order: SortOrder.ASC,
+    },
+    validationConfig,
+  );
 
   // 详情抽屉状态
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
@@ -54,9 +89,6 @@ const EndpointListPage = () => {
   const [editingEndpoint, setEditingEndpoint] =
     useState<EndpointWithAIModelCount | null>(null);
 
-  // 处理每页行数变化
-  const [pageSize, setPageSize] = useState(10);
-
   // 测试状态管理
   const [testingEndpointIds, setTestingEndpointIds] = useState<number[]>([]);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -79,6 +111,16 @@ const EndpointListPage = () => {
       }),
     { staleTime: 30000 },
   );
+
+  // 当总页数变化时，更新验证配置
+  useEffect(() => {
+    if (endpoints?.pages) {
+      setValidationConfig((prev) => ({
+        ...prev,
+        totalPages: endpoints.pages,
+      }));
+    }
+  }, [endpoints?.pages]);
 
   useEffect(() => {
     const running_endpoint_ids = endpoints?.items

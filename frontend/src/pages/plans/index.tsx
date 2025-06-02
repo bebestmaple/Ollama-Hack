@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import {
@@ -14,7 +14,12 @@ import { Tooltip } from "@heroui/tooltip";
 import { addToast } from "@heroui/toast";
 import { Checkbox } from "@heroui/checkbox";
 
-import { useCustomQuery, useCustomMutation } from "@/hooks";
+import {
+  useCustomQuery,
+  useCustomMutation,
+  usePaginationUrlState,
+  PaginationValidationConfig,
+} from "@/hooks";
 import { EnhancedAxiosError, planApi } from "@/api";
 import {
   PlanCreate,
@@ -30,12 +35,41 @@ import { DataTable } from "@/components/DataTable";
 
 const PlansPage = () => {
   const { confirm } = useDialog();
+
+  // 验证配置
+  const [validationConfig, setValidationConfig] =
+    useState<PaginationValidationConfig>({
+      page: { min: 1 },
+      pageSize: { min: 5, max: 100 },
+      totalPages: 1,
+      orderBy: {
+        allowedFields: ["id", "name", "rpm", "rpd", "is_default"],
+        defaultField: "id",
+      },
+    });
+
   // 分页和搜索状态
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [orderBy, setOrderBy] = useState("id");
-  const [order, setOrder] = useState<SortOrder>(SortOrder.ASC);
+  const {
+    page,
+    pageSize,
+    search: searchTerm,
+    orderBy,
+    order,
+    setPage,
+    setPageSize,
+    setSearch: setSearchTerm,
+    setOrderBy,
+    setOrder,
+  } = usePaginationUrlState(
+    {
+      page: 1,
+      pageSize: 10,
+      search: "",
+      orderBy: "id",
+      order: SortOrder.ASC,
+    },
+    validationConfig,
+  );
 
   // 模态框状态
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -85,6 +119,16 @@ const PlansPage = () => {
       }),
     { staleTime: 30000 },
   );
+
+  // 当总页数变化时，更新验证配置
+  useEffect(() => {
+    if (plans?.pages) {
+      setValidationConfig((prev) => ({
+        ...prev,
+        totalPages: plans.pages,
+      }));
+    }
+  }, [plans?.pages]);
 
   // 创建计划
   const createPlanMutation = useCustomMutation<PlanResponse, PlanCreate>(

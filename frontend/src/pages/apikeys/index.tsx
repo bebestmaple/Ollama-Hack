@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import {
@@ -29,7 +29,12 @@ import { useTheme } from "@heroui/use-theme";
 import { SortDescriptor } from "@react-types/shared";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { useCustomQuery, useCustomMutation } from "@/hooks";
+import {
+  useCustomQuery,
+  useCustomMutation,
+  usePaginationUrlState,
+  PaginationValidationConfig,
+} from "@/hooks";
 import { apiKeyApi } from "@/api";
 import {
   ApiKeyCreate,
@@ -53,16 +58,48 @@ import {
 import { DataTable } from "@/components/DataTable";
 import { useDialog } from "@/contexts/DialogContext";
 import { StatsDrawer } from "@/components/apikeys";
+
 const ApiKeysPage = () => {
   SyntaxHighlighter.registerLanguage("bash", bash);
   const { theme } = useTheme();
   const { isAdmin } = useAuth();
   const { confirm } = useDialog();
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [orderBy, setOrderBy] = useState<string | undefined>();
-  const [order, setOrder] = useState<SortOrder | undefined>();
+
+  // 验证配置
+  const [validationConfig, setValidationConfig] =
+    useState<PaginationValidationConfig>({
+      page: { min: 1 },
+      pageSize: { min: 5, max: 100 },
+      totalPages: 1,
+      orderBy: {
+        allowedFields: ["id", "name", "created_at", "last_used_at"],
+        defaultField: "id",
+      },
+    });
+
+  // 使用URL参数管理状态，替代多个单独的useState
+  const {
+    page,
+    pageSize: size,
+    search: searchTerm,
+    orderBy,
+    order,
+    setPage,
+    setPageSize: setSize,
+    setSearch: setSearchTerm,
+    setOrderBy,
+    setOrder,
+  } = usePaginationUrlState(
+    {
+      page: 1,
+      pageSize: 10,
+      search: "",
+      orderBy: undefined,
+      order: undefined,
+    },
+    validationConfig,
+  );
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [createdApiKey, setCreatedApiKey] = useState<ApiKeyResponse | null>(
@@ -114,6 +151,16 @@ const ApiKeysPage = () => {
       }),
     { staleTime: 30000 },
   );
+
+  // 当总页数变化时，更新验证配置
+  useEffect(() => {
+    if (apiKeys?.pages) {
+      setValidationConfig((prev) => ({
+        ...prev,
+        totalPages: apiKeys.pages,
+      }));
+    }
+  }, [apiKeys?.pages]);
 
   // 创建 API 密钥
   const createApiKeyMutation = useCustomMutation<ApiKeyResponse, ApiKeyCreate>(

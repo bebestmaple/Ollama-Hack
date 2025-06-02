@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Form } from "@heroui/form";
@@ -16,7 +16,12 @@ import { addToast } from "@heroui/toast";
 import { Chip } from "@heroui/chip";
 import { Select, SelectItem } from "@heroui/select";
 
-import { useCustomQuery, useCustomMutation } from "@/hooks";
+import {
+  useCustomQuery,
+  useCustomMutation,
+  usePaginationUrlState,
+  PaginationValidationConfig,
+} from "@/hooks";
 import { useAuth } from "@/contexts/AuthContext";
 import { authApi, planApi, EnhancedAxiosError } from "@/api";
 import {
@@ -35,11 +40,42 @@ import { useDialog } from "@/contexts/DialogContext";
 const UsersPage = () => {
   const { user: currentUser, isAdmin } = useAuth();
   const { confirm } = useDialog();
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [orderBy, setOrderBy] = useState<string | undefined>();
-  const [order, setOrder] = useState<SortOrder | undefined>();
+
+  // 验证配置
+  const [validationConfig, setValidationConfig] =
+    useState<PaginationValidationConfig>({
+      page: { min: 1 },
+      pageSize: { min: 5, max: 100 },
+      totalPages: 1,
+      orderBy: {
+        allowedFields: ["id", "username", "is_admin", "plan_id"],
+        defaultField: "id",
+      },
+    });
+
+  // 使用URL参数管理状态，替代多个单独的useState
+  const {
+    page,
+    pageSize,
+    search: searchTerm,
+    orderBy,
+    order,
+    setPage,
+    setPageSize,
+    setSearch: setSearchTerm,
+    setOrderBy,
+    setOrder,
+  } = usePaginationUrlState(
+    {
+      page: 1,
+      pageSize: 10,
+      search: "",
+      orderBy: undefined,
+      order: undefined,
+    },
+    validationConfig,
+  );
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -99,6 +135,16 @@ const UsersPage = () => {
       enabled: isAdmin,
     },
   );
+
+  // 当总页数变化时，更新验证配置
+  useEffect(() => {
+    if (users?.pages) {
+      setValidationConfig((prev) => ({
+        ...prev,
+        totalPages: users.pages,
+      }));
+    }
+  }, [users?.pages]);
 
   // 获取所有计划列表（用于编辑用户时选择计划）
   const { data: plans, isLoading: isLoadingPlans } = useCustomQuery<

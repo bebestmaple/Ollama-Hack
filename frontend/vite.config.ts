@@ -15,6 +15,7 @@ export default defineConfig({
 
           // UI 组件库
           "ui-components": [
+            "@heroui/number-input",
             "@heroui/button",
             "@heroui/card",
             "@heroui/input",
