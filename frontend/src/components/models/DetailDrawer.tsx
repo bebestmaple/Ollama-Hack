@@ -241,6 +241,7 @@ const ModelDetailDrawer = ({ id, isOpen, onClose }: ModelDetailProps) => {
                   renderCell={renderCell}
                   selectedSize={size}
                   setSize={setSize}
+                  showCustomPageSize={false}
                   title="可用端点"
                   total={model.endpoints.total}
                   onPageChange={handlePageChange}

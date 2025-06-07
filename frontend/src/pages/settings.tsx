@@ -178,34 +178,36 @@ const Settings = () => {
           </form>
         </Card>
 
-        <Card className="p-6 mt-6">
-          <h2 className="text-xl font-semibold mb-4">系统设置</h2>
-          <form onSubmit={handleUpdateEndpointTaskInterval}>
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <Input
-                  description="设为 0 禁用自动更新"
-                  label="更新端点任务间隔（小时）"
-                  min={0}
-                  type="number"
-                  value={updateEndpointTaskInterval}
-                  onChange={(e) =>
-                    setUpdateEndpointTaskInterval(Number(e.target.value))
-                  }
-                />
+        {isAdmin && (
+          <Card className="p-6 mt-6">
+            <h2 className="text-xl font-semibold mb-4">系统设置</h2>
+            <form onSubmit={handleUpdateEndpointTaskInterval}>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <Input
+                    description="设为 0 禁用自动更新"
+                    label="更新端点任务间隔（小时）"
+                    min={0}
+                    type="number"
+                    value={updateEndpointTaskInterval}
+                    onChange={(e) =>
+                      setUpdateEndpointTaskInterval(Number(e.target.value))
+                    }
+                  />
+                </div>
+                <div className="flex justify-between">
+                  <Button
+                    color="primary"
+                    isLoading={isUpdateEndpointTaskIntervalLoading}
+                    type="submit"
+                  >
+                    更新
+                  </Button>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <Button
-                  color="primary"
-                  isLoading={isUpdateEndpointTaskIntervalLoading}
-                  type="submit"
-                >
-                  更新
-                </Button>
-              </div>
-            </div>
-          </form>
-        </Card>
+            </form>
+          </Card>
+        )}
 
         <Card className="p-6 mt-6">
           <h2 className="text-xl font-semibold mb-4">账户信息</h2>

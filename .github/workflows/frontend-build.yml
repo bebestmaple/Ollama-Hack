@@ -2,7 +2,7 @@ name: Frontend Docker Build and Publish
 
 on:
     push:
-        branches: [main, master, workflow-dev]
+        branches: [main, master, workflow-dev, dev]
         paths:
             - "frontend/**"
         tags: ["v*.*.*"]
