@@ -106,6 +106,7 @@ export interface DataTableProps<T> {
   onSelectionChange?: (keys: Set<Key>) => void;
   selectionToolbarContent?: ReactNode;
   showJumper?: boolean;
+  showCustomPageSize?: boolean;
 }
 
 // 通用DataTable组件
@@ -144,6 +145,7 @@ export const DataTable = <T extends { id?: number | string }>({
   onSelectionChange,
   selectionToolbarContent,
   showJumper = true,
+  showCustomPageSize = true,
 }: DataTableProps<T>) => {
   // 获取表头列
   const headerColumns = React.useMemo(() => {
@@ -333,41 +335,45 @@ export const DataTable = <T extends { id?: number | string }>({
                       <DropdownItem key={size}>{size}</DropdownItem>
                     ))}
                   </DropdownSection>
-                  <DropdownSection title="自定义">
-                    <DropdownItem
-                      isReadOnly
-                      endContent={
-                        <Button
-                          color="primary"
-                          size="sm"
-                          variant="flat"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            applyCustomPageSize();
-                          }}
-                        >
-                          应用
-                        </Button>
-                      }
-                      startContent={
-                        <Input
-                          aria-label="自定义页面大小"
-                          className="w-20"
-                          color={isInvalidCustomPageSize ? "danger" : "default"}
-                          errorMessage={`页面大小必须在 ${minPageSize} 到 ${maxPageSize} 之间`}
-                          isInvalid={isInvalidCustomPageSize}
-                          placeholder={`${minPageSize}-${maxPageSize}`}
-                          radius="sm"
-                          size="sm"
-                          value={customPageSize}
-                          onKeyDown={handleKeyDown}
-                          onValueChange={setCustomPageSize}
-                        />
-                      }
-                      textValue="自定义页面大小"
-                    />
-                  </DropdownSection>
+                  {showCustomPageSize && (
+                    <DropdownSection title="自定义">
+                      <DropdownItem
+                        isReadOnly
+                        endContent={
+                          <Button
+                            color="primary"
+                            size="sm"
+                            variant="flat"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              applyCustomPageSize();
+                            }}
+                          >
+                            应用
+                          </Button>
+                        }
+                        startContent={
+                          <Input
+                            aria-label="自定义页面大小"
+                            className="w-20"
+                            color={
+                              isInvalidCustomPageSize ? "danger" : "default"
+                            }
+                            errorMessage={`页面大小必须在 ${minPageSize} 到 ${maxPageSize} 之间`}
+                            isInvalid={isInvalidCustomPageSize}
+                            placeholder={`${minPageSize}-${maxPageSize}`}
+                            radius="sm"
+                            size="sm"
+                            value={customPageSize}
+                            onKeyDown={handleKeyDown}
+                            onValueChange={setCustomPageSize}
+                          />
+                        }
+                        textValue="自定义页面大小"
+                      />
+                    </DropdownSection>
+                  )}
                 </DropdownMenu>
               </Dropdown>
             )}

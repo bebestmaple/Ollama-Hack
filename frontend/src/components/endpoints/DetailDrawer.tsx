@@ -251,6 +251,7 @@ const EndpointDetailDrawer = ({
                   renderCell={renderCell}
                   selectedSize={size}
                   setSize={setSize}
+                  showCustomPageSize={false}
                   title="可用模型"
                   total={endpoint.ai_models.total}
                   onPageChange={handlePageChange}
